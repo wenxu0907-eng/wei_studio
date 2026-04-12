@@ -5,6 +5,26 @@ const STORAGE_KEY = "bubble-drawing-studio-project-v1";
 const QWEN_SETTINGS_KEY = "bubble-drawing-studio-qwen-settings-v1";
 const ACCESS_CODE_STORAGE_KEY = "bubble-drawing-studio-access-v1";
 const ACCESS_CODE_HASH = "c92bdf7fa984812a3e07f29b3ecf342f2ea5187b3601044b41d4e68cf6dafdac";
+const UiLogic = window.BubbleUiLogic || {
+  qwenStateLabel(hasSavedQwen, hasQwenKey) {
+    if (hasSavedQwen) {
+      return "已保存";
+    }
+    if (hasQwenKey) {
+      return "待保存";
+    }
+    return "未配置";
+  },
+  sourceActionDisabled(busy) {
+    return Boolean(busy);
+  },
+  scanActionDisabled(hasSavedQwen, hasSource, busy) {
+    return !hasSavedQwen || !hasSource || Boolean(busy);
+  },
+  rerunActionDisabled(hasSavedQwen, hasSource, hasQwenKey, busy) {
+    return !hasSavedQwen || !hasSource || !hasQwenKey || Boolean(busy);
+  }
+};
 
 if (window.pdfjsLib) {
   window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER;
@@ -232,12 +252,12 @@ function updateControls() {
   els.statBubbles.textContent = String(state.annotations.length);
   els.statDetections.textContent = String(state.annotations.length);
   els.selectionState.textContent = hasActive ? "已选中气泡" : "未选中";
-  els.qwenState.textContent = hasSavedQwen ? "已保存" : hasQwenKey ? "待保存" : "未配置";
+  els.qwenState.textContent = UiLogic.qwenStateLabel(hasSavedQwen, hasQwenKey);
 
   els.fileInput.disabled = state.busy;
-  els.uploadBtn.disabled = !hasSavedQwen || state.busy;
-  els.loadSampleBtn.disabled = !hasSavedQwen || state.busy;
-  els.scanBtn.disabled = !hasSavedQwen || !hasSource || state.busy;
+  els.uploadBtn.disabled = UiLogic.sourceActionDisabled(state.busy);
+  els.loadSampleBtn.disabled = UiLogic.sourceActionDisabled(state.busy);
+  els.scanBtn.disabled = UiLogic.scanActionDisabled(hasSavedQwen, hasSource, state.busy);
   els.resetBtn.disabled = !hasSource || state.busy;
   els.localFallbackBtn.disabled = !hasSource || state.busy;
   els.pageSelect.disabled = !state.pdfDoc || state.busy;
@@ -249,7 +269,7 @@ function updateControls() {
   els.exportJsonBtn.disabled = !hasSource || state.busy;
   els.exportCsvBtn.disabled = !hasAnnotations || state.busy;
   els.exportXlsxBtn.disabled = !hasAnnotations || state.busy;
-  els.runQwenBtn.disabled = !hasSavedQwen || !hasSource || !hasQwenKey || state.busy;
+  els.runQwenBtn.disabled = UiLogic.rerunActionDisabled(hasSavedQwen, hasSource, hasQwenKey, state.busy);
   els.toggleBoxesBtn.textContent = state.showBoxes ? "隐藏 OCR 框" : "显示 OCR 框";
   els.addBubbleBtn.textContent = state.addMode ? "点击图纸以新增" : "点击新增气泡";
   els.reanchorBtn.textContent = state.reanchorMode ? "点击图纸以锚定" : "下次点击重新锚定";
