@@ -124,6 +124,8 @@ function showAccessFeedback(message, isError = false) {
 function setAccessState(unlocked) {
   els.accessGate.hidden = unlocked;
   els.appShell.hidden = !unlocked;
+  els.accessGate.style.display = unlocked ? "none" : "grid";
+  els.appShell.style.display = unlocked ? "grid" : "none";
 }
 
 async function unlockPage() {
@@ -144,8 +146,7 @@ async function unlockPage() {
     localStorage.setItem(ACCESS_CODE_STORAGE_KEY, digest);
     els.accessCodeInput.value = "";
     showAccessFeedback("访问已通过，正在进入页面。");
-    setAccessState(true);
-    updateSurfaceSize();
+    setTimeout(() => window.location.reload(), 120);
   } finally {
     els.unlockBtn.disabled = false;
   }
