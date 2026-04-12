@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>气泡标注工作台</title>
+  <link rel="stylesheet" href="./app.css" />
+</head>
+<body>
+  <div class="access-gate" id="access-gate">
+    <div class="access-card">
+      <div class="eyebrow">Private Access</div>
+      <h1>请输入访问码</h1>
+      <p class="lead">只有拿到你分享访问码的人才能打开这个演示页面。输入正确访问码后，用户仍需使用自己的 Qwen API 密钥。</p>
+      <label class="field">
+        <span>访问码</span>
+        <input id="access-code-input" type="password" placeholder="输入你分享给客户的访问码" />
+      </label>
+      <div class="button-row">
+        <button class="btn btn-primary" id="unlock-btn" type="button">解锁页面</button>
+      </div>
+      <div class="access-feedback" id="access-feedback">已启用轻量访问保护。</div>
+    </div>
+  </div>
+
+  <div class="app-shell" id="app-shell" hidden>
+    <aside class="sidebar">
+      <div class="brand-block">
+        <div class="eyebrow">图纸智能识别</div>
+        <h1>气泡标注工作台</h1>
+        <p class="lead">上传图纸后，先让 Qwen 识别与几何相关的尺寸，再手动微调气泡位置与内容，最后导出团队实际使用的尺寸清单。</p>
+      </div>
+
+      <section class="onboarding-card">
+        <div class="onboarding-badge">公开演示版</div>
+        <h2>首次使用请按这个顺序</h2>
+        <ol class="onboarding-list">
+          <li>先在下方填写并保存 API 设置</li>
+          <li>再点击“加载示例”或上传客户图纸</li>
+          <li>运行首轮识别，生成初始气泡</li>
+          <li>在右侧修正后，继续反复复跑</li>
+        </ol>
+      </section>
+
+      <section class="stats-grid">
+        <article class="stat-card">
+          <strong id="stat-bubbles">0</strong>
+          <span>气泡</span>
+        </article>
+        <article class="stat-card">
+          <strong id="stat-detections">0</strong>
+          <span>识别项</span>
+        </article>
+        <article class="stat-card">
+          <strong id="stat-pages">0</strong>
+          <span>页数</span>
+        </article>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-head">
+          <h2>1. API 设置</h2>
+          <span class="panel-meta" id="qwen-state">未配置</span>
+        </div>
+        <div class="controls-grid">
+          <label class="field">
+            <span>API 密钥</span>
+            <input id="qwen-api-key" type="password" placeholder="粘贴兼容 Qwen 的 API 密钥" />
+          </label>
+          <label class="field">
+            <span>模型</span>
+            <input id="qwen-model" value="qwen3-vl-plus" />
+          </label>
+          <label class="field">
+            <span>基础 URL</span>
+            <input id="qwen-base-url" value="https://dashscope-intl.aliyuncs.com/compatible-mode/v1" />
+          </label>
+          <label class="field">
+            <span>请求头（可选 JSON）</span>
+            <input id="qwen-extra-headers" placeholder='{"HTTP-Referer":"...","X-Title":"..."}' />
+          </label>
+        </div>
+        <div class="button-row">
+          <button class="btn btn-ghost" id="save-qwen-btn" type="button">保存 API 设置</button>
+        </div>
+        <p class="lead">先填写并保存 Qwen API 设置。配置完成后，再加载示例图纸或上传客户图纸，开始首轮识别。</p>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-head">
+          <h2>2. 加载图纸</h2>
+          <span class="panel-meta" id="source-kind">未加载文件</span>
+        </div>
+        <div class="dropzone" id="dropzone">
+          <p>先配置 API，再点击“加载示例”打开内置演示图纸 `3910992永利版.pdf`，或上传你自己的 `PDF / PNG / JPG`。所有处理都在浏览器本地完成。</p>
+          <div class="button-row">
+            <button class="btn btn-secondary" id="load-sample-btn" type="button">加载示例</button>
+            <label class="btn btn-primary" for="file-input">上传图纸</label>
+          </div>
+          <input id="file-input" type="file" accept=".pdf,image/*" />
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-head">
+          <h2>3. 首轮扫描</h2>
+          <span class="panel-meta" id="scan-state">空闲</span>
+        </div>
+        <div class="controls-grid">
+          <label class="field">
+            <span>页码</span>
+            <select id="page-select" disabled></select>
+          </label>
+          <label class="field">
+            <span>缩放</span>
+            <select id="zoom-select">
+              <option value="fit" selected>适应窗口</option>
+              <option value="0.75">75%</option>
+              <option value="1">100%</option>
+              <option value="1.25">125%</option>
+              <option value="1.5">150%</option>
+            </select>
+          </label>
+        </div>
+        <div class="button-row">
+          <button class="btn btn-primary" id="scan-btn" type="button" disabled>运行 Qwen 首轮识别</button>
+          <button class="btn btn-secondary" id="reset-btn" type="button" disabled>恢复到扫描结果</button>
+        </div>
+        <div class="button-row">
+          <button class="btn btn-ghost" id="local-fallback-btn" type="button" disabled>运行本地备用 OCR</button>
+          <button class="btn btn-ghost" id="toggle-boxes-btn" type="button">隐藏 OCR 框</button>
+          <button class="btn btn-ghost" id="renumber-btn" type="button" disabled>重新编号</button>
+        </div>
+        <div class="progress-block">
+          <div class="progress-track" aria-hidden="true">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <div class="progress-copy" id="progress-copy">就绪</div>
+        </div>
+        <p class="lead">先运行首轮识别生成初始气泡。首轮结果出来后，再进入右侧画布和表格做人工修正。</p>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-head">
+          <h2>4. 修正与复跑</h2>
+          <span class="panel-meta">人工校正</span>
+        </div>
+        <div class="button-row">
+          <button class="btn btn-primary" id="run-qwen-btn" type="button" disabled>根据修正结果再次运行 Qwen</button>
+        </div>
+        <p class="lead">在右侧拖动气泡、修改尺寸、备注和锚点后，点击上方按钮重新运行 Qwen，让模型基于人工修正继续补全遗漏与公差。</p>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-head">
+          <h2>5. 项目数据</h2>
+          <span class="panel-meta">本地状态</span>
+        </div>
+        <div class="button-row">
+          <button class="btn btn-secondary" id="save-project-btn" type="button" disabled>保存项目</button>
+          <button class="btn btn-secondary" id="restore-project-btn" type="button">恢复上次保存</button>
+        </div>
+        <div class="button-row">
+          <button class="btn btn-ghost" id="export-json-btn" type="button" disabled>导出 JSON</button>
+          <label class="btn btn-ghost" for="import-json-input">导入 JSON</label>
+          <input id="import-json-input" type="file" accept=".json,application/json" />
+        </div>
+        <div class="button-row">
+          <button class="btn btn-primary" id="export-csv-btn" type="button" disabled>导出 CSV</button>
+          <button class="btn btn-primary" id="export-xlsx-btn" type="button" disabled>导出 XLSX</button>
+        </div>
+      </section>
+
+      <div class="status-card" id="status-card">
+        推荐流程：先保存 API 设置，再加载示例或上传图纸，然后运行首轮识别，接着人工修正并反复复跑。
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <section class="workspace-topbar">
+        <div class="workspace-pills">
+          <div class="pill" id="file-pill">未加载图纸</div>
+          <div class="pill" id="page-pill">第 0 / 0 页</div>
+          <div class="pill" id="save-pill">未保存</div>
+        </div>
+        <div class="workspace-actions">
+          <label class="field search-field">
+            <span>筛选表格</span>
+            <input id="filter-input" placeholder="搜索尺寸值、备注或标签" />
+          </label>
+        </div>
+      </section>
+
+      <section class="workspace-body">
+        <div class="viewer-panel">
+          <div class="viewer-toolbar">
+            <div>
+              <h2>图纸画布</h2>
+              <p>拖动气泡可调整位置。使用“新增气泡”模式可放置新的锚点，使用“重新锚定”模式可更新你希望模型下一轮重点参考的精确来源位置。</p>
+            </div>
+            <div class="viewer-actions">
+              <button class="btn btn-ghost" id="zoom-out-btn" type="button">-</button>
+              <button class="btn btn-ghost" id="zoom-fit-btn" type="button">适应</button>
+              <button class="btn btn-ghost" id="zoom-100-btn" type="button">100%</button>
+              <button class="btn btn-ghost" id="zoom-in-btn" type="button">+</button>
+              <button class="btn btn-secondary" id="fullscreen-btn" type="button">全屏</button>
+            </div>
+          </div>
+
+          <div class="viewer-content">
+            <div class="viewer-shell" id="viewer-shell">
+              <div class="surface-sizer" id="surface-sizer">
+                <div class="surface" id="surface">
+                  <canvas id="sheet-canvas"></canvas>
+                  <div class="surface-overlay" id="surface-overlay">
+                    <div class="annotation-layer" id="annotation-layer"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="canvas-empty" id="canvas-empty">
+                上传 PDF 或图片开始使用。
+              </div>
+            </div>
+
+            <aside class="viewer-inspector">
+              <div class="viewer-inspector-head">
+                <div>
+                  <h3>当前选中气泡</h3>
+                  <p>请在图纸旁直接修改气泡内容；每次手动更改后，都可以再次运行 Qwen，让结果逐轮收敛。</p>
+                </div>
+                <span class="panel-meta panel-meta-dark" id="selection-state">未选中</span>
+              </div>
+              <div class="controls-grid">
+                <label class="field">
+                  <span>标签</span>
+                  <input id="bubble-label" placeholder="B1" />
+                </label>
+                <label class="field">
+                  <span>尺寸</span>
+                  <input id="bubble-value" placeholder="2450 mm" />
+                </label>
+                <label class="field">
+                  <span>备注</span>
+                  <input id="bubble-note" placeholder="识别来源或复核备注" />
+                </label>
+                <label class="field">
+                  <span>置信度</span>
+                  <input id="bubble-confidence" disabled />
+                </label>
+              </div>
+              <div class="button-row">
+                <button class="btn btn-secondary" id="add-bubble-btn" type="button">点击新增气泡</button>
+                <button class="btn btn-secondary" id="reanchor-btn" type="button" disabled>下次点击重新锚定</button>
+                <button class="btn btn-ghost" id="delete-bubble-btn" type="button" disabled>删除气泡和锚点</button>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div class="table-panel">
+        <div class="table-head">
+          <div>
+            <h2>尺寸清单</h2>
+            <p>点击任意行可选中对应气泡；点击可编辑单元格可更新你希望模型下一轮使用的尺寸值与备注。</p>
+          </div>
+        </div>
+
+          <div class="table-wrap">
+            <table id="results-table" hidden>
+              <thead>
+                <tr>
+                  <th>气泡</th>
+                  <th>尺寸</th>
+                  <th>公差</th>
+                  <th>备注</th>
+                  <th>置信度</th>
+                  <th>页码</th>
+                </tr>
+              </thead>
+              <tbody id="results-body"></tbody>
+            </table>
+            <div class="table-empty" id="table-empty">
+              还没有气泡。请先运行 Qwen 首轮识别，或手动新增一个气泡。
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="./sample-data.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

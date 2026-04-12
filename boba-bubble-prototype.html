@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boba Bubble Studio</title>
+  <style>
+    :root {
+      --bg-top: #f7efe4;
+      --bg-bottom: #eadcc7;
+      --panel: rgba(255, 250, 242, 0.82);
+      --panel-strong: #fffaf2;
+      --line: rgba(15, 23, 42, 0.1);
+      --ink: #122033;
+      --muted: #64748b;
+      --accent: #f97316;
+      --accent-dark: #c2410c;
+      --teal: #0f766e;
+      --canvas: #0f3652;
+      --shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(249, 115, 22, 0.16), transparent 26%),
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.14), transparent 24%),
+        linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      transition: transform 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 380px minmax(0, 1fr);
+      gap: 22px;
+      min-height: 100vh;
+      padding: 22px;
+    }
+
+    .panel,
+    .workspace {
+      border-radius: var(--radius-xl);
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      background: var(--panel);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow);
+    }
+
+    .panel {
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent-dark);
+      background: rgba(249, 115, 22, 0.1);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 34px;
+      line-height: 0.98;
+      letter-spacing: -0.05em;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      padding: 14px;
+      border-radius: 18px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 24px;
+      letter-spacing: -0.04em;
+    }
+
+    .stat span {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .card {
+      padding: 16px;
+      border-radius: var(--radius-lg);
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+    }
+
+    .card h2,
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      letter-spacing: -0.02em;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .dropzone {
+      border: 1.5px dashed rgba(15, 118, 110, 0.28);
+      border-radius: 18px;
+      padding: 16px;
+      background: linear-gradient(180deg, rgba(15, 118, 110, 0.04), rgba(249, 115, 22, 0.04));
+    }
+
+    .dropzone.dragging {
+      border-color: rgba(249, 115, 22, 0.68);
+      background: linear-gradient(180deg, rgba(249, 115, 22, 0.08), rgba(15, 118, 110, 0.05));
+    }
+
+    .actions,
+    .toolbar,
+    .toolbar-left,
+    .toolbar-right,
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .primary,
+    .secondary,
+    .ghost,
+    .upload-label {
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-weight: 700;
+    }
+
+    .primary {
+      color: white;
+      background: linear-gradient(135deg, var(--accent), #fb923c);
+      box-shadow: 0 14px 28px rgba(249, 115, 22, 0.24);
+    }
+
+    .secondary {
+      color: var(--ink);
+      background: white;
+      border: 1px solid var(--line);
+    }
+
+    .ghost {
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+    }
+
+    .upload-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      background: linear-gradient(135deg, var(--teal), #14b8a6);
+      cursor: pointer;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      min-width: 0;
+      padding: 11px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--ink);
+    }
+
+    .mini-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .mini-item {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      padding: 11px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.66);
+      font-size: 13px;
+    }
+
+    .mini-item strong {
+      display: inline-flex;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: rgba(15, 118, 110, 0.1);
+      color: var(--teal);
+      font-size: 12px;
+    }
+
+    .status {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(15, 118, 110, 0.08);
+      color: #124d48;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .status::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      margin-top: 5px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+      background: #14b8a6;
+      box-shadow: 0 0 0 6px rgba(20, 184, 166, 0.12);
+    }
+
+    .workspace {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .toolbar {
+      justify-content: space-between;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      background: rgba(15, 54, 82, 0.08);
+      color: #113652;
+      font-weight: 700;
+    }
+
+    .progress {
+      width: 180px;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(135deg, var(--teal), #2dd4bf);
+      transition: width 0.2s ease;
+    }
+
+    .stage-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 14px;
+      min-height: 0;
+      flex: 1;
+    }
+
+    .viewer,
+    .table-card {
+      border-radius: 24px;
+      background: rgba(10, 34, 52, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      min-width: 0;
+    }
+
+    .viewer {
+      padding: 18px;
+      overflow: auto;
+      position: relative;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(180deg, #103a57 0%, #0b2940 100%);
+      background-size: 28px 28px, 28px 28px, auto;
+    }
+
+    .surface-sizer {
+      position: relative;
+      min-width: min-content;
+      min-height: min-content;
+    }
+
+    .surface {
+      position: relative;
+      transform-origin: top left;
+    }
+
+    #sheetCanvas {
+      display: block;
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.35);
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .bubble-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: auto;
+    }
+
+    .leader {
+      position: absolute;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.96);
+      transform-origin: left center;
+      box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
+    }
+
+    .anchor-box {
+      position: absolute;
+      border: 2px solid rgba(45, 212, 191, 0.85);
+      background: rgba(45, 212, 191, 0.12);
+      border-radius: 8px;
+    }
+
+    .bubble {
+      position: absolute;
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      border: 3px solid white;
+      background: radial-gradient(circle at 30% 30%, #ffd8a8 0%, #fb923c 50%, #ea580c 100%);
+      color: white;
+      display: grid;
+      place-items: center;
+      font-size: 14px;
+      font-weight: 800;
+      box-shadow: 0 14px 28px rgba(234, 88, 12, 0.34);
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .bubble.active {
+      outline: 4px solid rgba(255, 255, 255, 0.34);
+      z-index: 4;
+    }
+
+    .bubble-tag {
+      position: absolute;
+      padding: 8px 10px;
+      border-radius: 12px;
+      transform: translate(-50%, -125%);
+      background: rgba(255, 250, 242, 0.98);
+      color: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.86);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.24);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .table-card {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      color: white;
+    }
+
+    .table-card h3 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      flex: 1;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      vertical-align: top;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: rgba(9, 28, 43, 0.98);
+      z-index: 1;
+      color: rgba(255, 255, 255, 0.78);
+      font-weight: 700;
+    }
+
+    tbody tr {
+      cursor: pointer;
+    }
+
+    tbody tr.active {
+      background: rgba(45, 212, 191, 0.12);
+    }
+
+    .empty {
+      display: grid;
+      place-items: center;
+      min-height: 280px;
+      padding: 20px;
+      color: rgba(255, 255, 255, 0.68);
+      text-align: center;
+      line-height: 1.55;
+    }
+
+    .tiny {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1280px) {
+      .stage-shell {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 1040px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .shell {
+        padding: 14px;
+        gap: 14px;
+      }
+
+      .panel,
+      .workspace {
+        border-radius: 22px;
+      }
+
+      .stats,
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="panel">
+      <div class="badge">Bubble AI Studio</div>
+      <div>
+        <h1>Real browser-based bubble markup</h1>
+        <p class="lead">Upload a PDF or image, render it locally, run OCR in the browser, detect dimension-like text, create editable bubbles, and export an Excel-ready register.</p>
+      </div>
+
+      <section class="stats">
+        <div class="stat">
+          <strong id="bubbleCount">0</strong>
+          <span>Bubbles</span>
+        </div>
+        <div class="stat">
+          <strong id="detectedCount">0</strong>
+          <span>Detected</span>
+        </div>
+        <div class="stat">
+          <strong id="loadedState">No</strong>
+          <span>Drawing loaded</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Input</h2>
+        <div class="dropzone" id="dropzone">
+          <p>Use the bundled sample `3910992永利版.pdf`, or upload a `PDF / PNG / JPG`. The heavy lifting happens in your browser via `PDF.js` and `Tesseract.js`.</p>
+          <div class="actions" style="margin-top:12px;">
+            <label class="upload-label" for="fileInput">Upload drawing</label>
+            <button class="secondary" id="loadSampleBtn" type="button">Load sample</button>
+          </div>
+          <input id="fileInput" type="file" accept=".pdf,image/*" />
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Recognition</h2>
+        <div class="grid-2">
+          <div class="field">
+            <label for="pageSelect">Page</label>
+            <select id="pageSelect" disabled>
+              <option value="1">1</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="zoomSelect">Zoom</label>
+            <select id="zoomSelect">
+              <option value="0.75">75%</option>
+              <option value="1" selected>100%</option>
+              <option value="1.25">125%</option>
+              <option value="1.5">150%</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions" style="margin-top:12px;">
+          <button class="primary" id="scanBtn" type="button" disabled>Scan dimensions</button>
+          <button class="secondary" id="resetBtn" type="button" disabled>Reset bubbles</button>
+          <button class="ghost" id="exportBtn" type="button" disabled>Export Excel</button>
+        </div>
+        <div class="mini-list">
+          <div class="mini-item"><strong>1</strong><div>Render source page into canvas</div></div>
+          <div class="mini-item"><strong>2</strong><div>OCR the drawing and score dimension-like text</div></div>
+          <div class="mini-item"><strong>3</strong><div>Auto-place bubbles with drag-to-adjust editing</div></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>Selected bubble</h3>
+        <div class="grid-2">
+          <div class="field">
+            <label for="bubbleLabel">Label</label>
+            <input id="bubbleLabel" placeholder="B1" />
+          </div>
+          <div class="field">
+            <label for="bubbleValue">Dimension</label>
+            <input id="bubbleValue" placeholder="2450 mm" />
+          </div>
+        </div>
+        <div class="grid-2" style="margin-top:10px;">
+          <div class="field">
+            <label for="bubbleNote">Note</label>
+            <input id="bubbleNote" placeholder="OCR or manual note" />
+          </div>
+          <div class="field">
+            <label for="bubbleConfidence">Confidence</label>
+            <input id="bubbleConfidence" placeholder="0.92" disabled />
+          </div>
+        </div>
+        <div class="actions" style="margin-top:12px;">
+          <button class="secondary" id="addBtn" type="button">Add bubble</button>
+          <button class="ghost" id="deleteBtn" type="button">Delete</button>
+        </div>
+      </section>
+
+      <div class="status" id="statusText">Waiting for a drawing. After the file loads, click “Scan dimensions” to run OCR and generate bubbles from real text on the sheet.</div>
+
+      <p class="tiny">This file stays install-free. The only runtime dependency is an internet connection so the browser can fetch OCR and PDF libraries from CDNs the first time it opens.</p>
+    </aside>
+
+    <main class="workspace">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="pill" id="filePill">No drawing loaded</div>
+          <div class="pill" id="pagePill">Page 1 / 1</div>
+        </div>
+        <div class="toolbar-right">
+          <div class="progress" aria-hidden="true">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div class="pill" id="progressText">Idle</div>
+        </div>
+      </div>
+
+      <div class="stage-shell">
+        <section class="viewer" id="viewer">
+          <div class="surface-sizer" id="surfaceSizer">
+            <div class="surface" id="surface">
+              <canvas id="sheetCanvas"></canvas>
+              <div class="overlay" id="overlay">
+                <div class="bubble-layer" id="bubbleLayer"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="table-card">
+          <h3>Detected dimensions</h3>
+          <div class="table-wrap" id="tableWrap">
+            <div class="empty" id="tableEmpty">Load a drawing and run OCR to populate the dimension register.</div>
+            <table id="resultsTable" hidden>
+              <thead>
+                <tr>
+                  <th>Bubble</th>
+                  <th>Dimension</th>
+                  <th>Confidence</th>
+                </tr>
+              </thead>
+              <tbody id="resultsBody"></tbody>
+            </table>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script>
+    const SAMPLE_FILE = "3910992永利版.pdf";
+    const OCR_LANG = "eng";
+    const PDF_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER;
+    }
+
+    const state = {
+      source: null,
+      pdfDoc: null,
+      pdfBytes: null,
+      imageBitmap: null,
+      pageCount: 1,
+      currentPage: 1,
+      zoom: 1,
+      annotations: [],
+      activeId: null,
+      scanSnapshot: [],
+      canvasWidth: 0,
+      canvasHeight: 0,
+      dragging: null,
+      busy: false
+    };
+
+    const els = {
+      dropzone: document.getElementById("dropzone"),
+      fileInput: document.getElementById("fileInput"),
+      loadSampleBtn: document.getElementById("loadSampleBtn"),
+      scanBtn: document.getElementById("scanBtn"),
+      resetBtn: document.getElementById("resetBtn"),
+      exportBtn: document.getElementById("exportBtn"),
+      addBtn: document.getElementById("addBtn"),
+      deleteBtn: document.getElementById("deleteBtn"),
+      pageSelect: document.getElementById("pageSelect"),
+      zoomSelect: document.getElementById("zoomSelect"),
+      bubbleLabel: document.getElementById("bubbleLabel"),
+      bubbleValue: document.getElementById("bubbleValue"),
+      bubbleNote: document.getElementById("bubbleNote"),
+      bubbleConfidence: document.getElementById("bubbleConfidence"),
+      bubbleCount: document.getElementById("bubbleCount"),
+      detectedCount: document.getElementById("detectedCount"),
+      loadedState: document.getElementById("loadedState"),
+      filePill: document.getElementById("filePill"),
+      pagePill: document.getElementById("pagePill"),
+      progressBar: document.getElementById("progressBar"),
+      progressText: document.getElementById("progressText"),
+      statusText: document.getElementById("statusText"),
+      viewer: document.getElementById("viewer"),
+      surfaceSizer: document.getElementById("surfaceSizer"),
+      surface: document.getElementById("surface"),
+      overlay: document.getElementById("overlay"),
+      bubbleLayer: document.getElementById("bubbleLayer"),
+      canvas: document.getElementById("sheetCanvas"),
+      tableEmpty: document.getElementById("tableEmpty"),
+      resultsTable: document.getElementById("resultsTable"),
+      resultsBody: document.getElementById("resultsBody")
+    };
+
+    const ctx = els.canvas.getContext("2d");
+
+    function setStatus(message) {
+      els.statusText.textContent = message;
+    }
+
+    function setProgress(label, percent) {
+      els.progressText.textContent = label;
+      els.progressBar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+    }
+
+    function setBusy(isBusy) {
+      state.busy = isBusy;
+      els.fileInput.disabled = isBusy;
+      els.loadSampleBtn.disabled = isBusy;
+      updateControls();
+    }
+
+    function updateControls() {
+      const hasSource = Boolean(state.source);
+      const hasAnnotations = state.annotations.length > 0;
+      const hasActive = Boolean(state.activeId);
+      els.scanBtn.disabled = !hasSource || state.busy;
+      els.resetBtn.disabled = !hasSource || state.busy;
+      els.exportBtn.disabled = !hasAnnotations || state.busy;
+      els.addBtn.disabled = !hasSource || state.busy;
+      els.deleteBtn.disabled = !hasActive || state.busy;
+      els.pageSelect.disabled = !state.pdfDoc || state.busy;
+      els.loadedState.textContent = hasSource ? "Yes" : "No";
+      els.bubbleCount.textContent = String(state.annotations.length);
+      els.detectedCount.textContent = String(state.annotations.length);
+      els.filePill.textContent = hasSource ? state.source.name : "No drawing loaded";
+      els.pagePill.textContent = `Page ${state.currentPage} / ${state.pageCount}`;
+    }
+
+    function sanitize(text) {
+      return String(text || "")
+        .replace(/\s+/g, " ")
+        .replace(/[Oo](?=\d)/g, "0")
+        .trim();
+    }
+
+    function normalizeDimension(text) {
+      const clean = sanitize(text)
+        .replace(/[xX]/g, "x")
+        .replace(/\s*-\s*/g, "-")
+        .replace(/\s*\/\s*/g, "/")
+        .replace(/\s+/g, " ");
+      return clean;
+    }
+
+    function scoreDimension(text, confidence) {
+      const value = normalizeDimension(text);
+      if (!value) {
+        return null;
+      }
+
+      const mmMatch = value.match(/\b\d{2,5}(?:[.,]\d+)?\s?(?:mm|cm|m)\b/i);
+      const footMatch = value.match(/\b\d+\s*(?:'|ft)\s*-?\s*\d+(?:\s*\/\s*\d+)?\s*(?:"|in)?\b/i);
+      const ratioMatch = value.match(/\b\d+(?:[.,]\d+)?\s?x\s?\d+(?:[.,]\d+)?(?:\s?(?:mm|cm|m))?\b/i);
+      const plainNumber = value.match(/^\d{2,5}(?:[.,]\d+)?$/);
+      const mixedNumber = value.match(/\b\d{2,5}(?:[.,]\d+)?\b/);
+
+      let score = confidence / 100;
+      let extracted = null;
+
+      if (mmMatch) {
+        extracted = mmMatch[0];
+        score += 0.55;
+      } else if (footMatch) {
+        extracted = footMatch[0];
+        score += 0.5;
+      } else if (ratioMatch) {
+        extracted = ratioMatch[0];
+        score += 0.45;
+      } else if (plainNumber && value.length >= 2) {
+        extracted = plainNumber[0];
+        score += 0.28;
+      } else if (mixedNumber && /\d/.test(value) && value.length <= 12) {
+        extracted = mixedNumber[0];
+        score += 0.12;
+      }
+
+      if (!extracted) {
+        return null;
+      }
+
+      if (/[A-Za-z]{4,}/.test(value) && !/(mm|cm|ft|in|m)/i.test(value)) {
+        score -= 0.18;
+      }
+
+      if (/page|scale|issue|rev|sheet|title/i.test(value)) {
+        score -= 0.3;
+      }
+
+      if (score < 0.42) {
+        return null;
+      }
+
+      return {
+        value: extracted,
+        score: Math.max(0, Math.min(0.99, score)),
+        sourceText: value
+      };
+    }
+
+    function dedupeCandidates(items) {
+      const seen = new Map();
+      items.forEach((item) => {
+        const key = `${item.value}|${Math.round(item.anchorX / 8)}|${Math.round(item.anchorY / 8)}`;
+        const current = seen.get(key);
+        if (!current || item.confidence > current.confidence) {
+          seen.set(key, item);
+        }
+      });
+      return Array.from(seen.values())
+        .sort((a, b) => (b.confidence - a.confidence) || (a.anchorY - b.anchorY))
+        .slice(0, 80);
+    }
+
+    function createAnnotation(candidate, index) {
+      const side = index % 2 === 0 ? 1 : -1;
+      const vertical = ((index % 5) - 2) * 18;
+      const bubbleX = clamp(candidate.anchorX + (side * 88), 12, state.canvasWidth - 58);
+      const bubbleY = clamp(candidate.anchorY - 20 + vertical, 12, state.canvasHeight - 58);
+      return {
+        id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+        label: `B${index + 1}`,
+        value: candidate.value,
+        note: candidate.sourceText,
+        confidence: candidate.confidence,
+        page: state.currentPage,
+        x: bubbleX,
+        y: bubbleY,
+        anchorX: candidate.anchorX,
+        anchorY: candidate.anchorY,
+        box: candidate.box,
+        manual: false
+      };
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function updateSurfaceSize() {
+      els.surface.style.width = `${state.canvasWidth}px`;
+      els.surface.style.height = `${state.canvasHeight}px`;
+      els.surface.style.transform = `scale(${state.zoom})`;
+      els.surfaceSizer.style.width = `${state.canvasWidth * state.zoom}px`;
+      els.surfaceSizer.style.height = `${state.canvasHeight * state.zoom}px`;
+    }
+
+    function selectAnnotation(id) {
+      state.activeId = id;
+      const item = state.annotations.find((entry) => entry.id === id);
+      els.bubbleLabel.value = item ? item.label : "";
+      els.bubbleValue.value = item ? item.value : "";
+      els.bubbleNote.value = item ? item.note : "";
+      els.bubbleConfidence.value = item ? item.confidence.toFixed(2) : "";
+      renderAnnotations();
+      renderTable();
+    }
+
+    function renderTable() {
+      if (!state.annotations.length) {
+        els.resultsTable.hidden = true;
+        els.tableEmpty.hidden = false;
+        els.resultsBody.innerHTML = "";
+        return;
+      }
+
+      els.resultsTable.hidden = false;
+      els.tableEmpty.hidden = true;
+      els.resultsBody.innerHTML = "";
+
+      state.annotations.forEach((item) => {
+        const row = document.createElement("tr");
+        if (item.id === state.activeId) {
+          row.className = "active";
+        }
+        row.innerHTML = `
+          <td>${item.label}</td>
+          <td>${item.value}</td>
+          <td>${item.confidence.toFixed(2)}</td>
+        `;
+        row.addEventListener("click", () => {
+          selectAnnotation(item.id);
+        });
+        els.resultsBody.appendChild(row);
+      });
+    }
+
+    function renderAnnotations() {
+      els.bubbleLayer.innerHTML = "";
+
+      state.annotations.forEach((item) => {
+        if (item.box) {
+          const anchorBox = document.createElement("div");
+          anchorBox.className = "anchor-box";
+          anchorBox.style.left = `${item.box.x}px`;
+          anchorBox.style.top = `${item.box.y}px`;
+          anchorBox.style.width = `${item.box.w}px`;
+          anchorBox.style.height = `${item.box.h}px`;
+          els.bubbleLayer.appendChild(anchorBox);
+        }
+
+        const leader = document.createElement("div");
+        leader.className = "leader";
+        const x1 = item.anchorX;
+        const y1 = item.anchorY;
+        const x2 = item.x + 23;
+        const y2 = item.y + 23;
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const length = Math.sqrt((dx * dx) + (dy * dy));
+        leader.style.left = `${x1}px`;
+        leader.style.top = `${y1}px`;
+        leader.style.width = `${length}px`;
+        leader.style.transform = `rotate(${Math.atan2(dy, dx) * (180 / Math.PI)}deg)`;
+
+        const tag = document.createElement("div");
+        tag.className = "bubble-tag";
+        tag.style.left = `${item.anchorX}px`;
+        tag.style.top = `${item.anchorY}px`;
+        tag.textContent = `${item.label} · ${item.value}`;
+
+        const bubble = document.createElement("div");
+        bubble.className = `bubble${item.id === state.activeId ? " active" : ""}`;
+        bubble.style.left = `${item.x}px`;
+        bubble.style.top = `${item.y}px`;
+        bubble.textContent = item.label;
+
+        bubble.addEventListener("click", () => {
+          selectAnnotation(item.id);
+        });
+
+        bubble.addEventListener("pointerdown", (event) => {
+          const viewerRect = els.viewer.getBoundingClientRect();
+          state.dragging = {
+            id: item.id,
+            dx: (event.clientX - viewerRect.left + els.viewer.scrollLeft) / state.zoom - item.x,
+            dy: (event.clientY - viewerRect.top + els.viewer.scrollTop) / state.zoom - item.y
+          };
+          bubble.setPointerCapture(event.pointerId);
+          selectAnnotation(item.id);
+        });
+
+        els.bubbleLayer.appendChild(leader);
+        els.bubbleLayer.appendChild(tag);
+        els.bubbleLayer.appendChild(bubble);
+      });
+
+      updateControls();
+      renderTable();
+    }
+
+    function syncSelectedBubble() {
+      const item = state.annotations.find((entry) => entry.id === state.activeId);
+      if (!item) {
+        return;
+      }
+      item.label = sanitize(els.bubbleLabel.value) || item.label;
+      item.value = sanitize(els.bubbleValue.value) || item.value;
+      item.note = sanitize(els.bubbleNote.value);
+      renderAnnotations();
+    }
+
+    function clearAnnotations() {
+      state.annotations = [];
+      state.scanSnapshot = [];
+      state.activeId = null;
+      els.bubbleLabel.value = "";
+      els.bubbleValue.value = "";
+      els.bubbleNote.value = "";
+      els.bubbleConfidence.value = "";
+      renderAnnotations();
+    }
+
+    function populatePageSelect(count) {
+      els.pageSelect.innerHTML = "";
+      for (let index = 1; index <= count; index += 1) {
+        const option = document.createElement("option");
+        option.value = String(index);
+        option.textContent = `Page ${index}`;
+        els.pageSelect.appendChild(option);
+      }
+      els.pageSelect.value = String(state.currentPage);
+    }
+
+    async function renderPdfPage(pageNumber) {
+      const page = await state.pdfDoc.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: 2 });
+      state.canvasWidth = Math.round(viewport.width);
+      state.canvasHeight = Math.round(viewport.height);
+      els.canvas.width = state.canvasWidth;
+      els.canvas.height = state.canvasHeight;
+      updateSurfaceSize();
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      setStatus(`Loaded page ${pageNumber} from ${state.source.name}. Ready for OCR scan.`);
+      updateControls();
+    }
+
+    async function renderImage() {
+      const image = state.imageBitmap;
+      const maxWidth = 1800;
+      const scale = Math.min(1, maxWidth / image.width);
+      state.canvasWidth = Math.round(image.width * scale);
+      state.canvasHeight = Math.round(image.height * scale);
+      els.canvas.width = state.canvasWidth;
+      els.canvas.height = state.canvasHeight;
+      updateSurfaceSize();
+      ctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+      ctx.drawImage(image, 0, 0, state.canvasWidth, state.canvasHeight);
+      setStatus(`Loaded image ${state.source.name}. Ready for OCR scan.`);
+      updateControls();
+    }
+
+    async function openPdfFromBytes(bytes, name) {
+      state.pdfBytes = bytes;
+      state.imageBitmap = null;
+      state.pdfDoc = await window.pdfjsLib.getDocument({ data: bytes }).promise;
+      state.pageCount = state.pdfDoc.numPages;
+      state.currentPage = 1;
+      state.source = { kind: "pdf", name };
+      populatePageSelect(state.pageCount);
+      await renderPdfPage(1);
+      clearAnnotations();
+      updateControls();
+    }
+
+    async function openImageFile(file) {
+      const bitmap = await createImageBitmap(file);
+      state.imageBitmap = bitmap;
+      state.pdfDoc = null;
+      state.pdfBytes = null;
+      state.pageCount = 1;
+      state.currentPage = 1;
+      state.source = { kind: "image", name: file.name };
+      populatePageSelect(1);
+      await renderImage();
+      clearAnnotations();
+      updateControls();
+    }
+
+    async function loadFile(file) {
+      if (!file) {
+        return;
+      }
+
+      try {
+        setBusy(true);
+        setProgress("Loading file", 10);
+
+        if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          await openPdfFromBytes(bytes, file.name);
+        } else {
+          await openImageFile(file);
+        }
+
+        setProgress("Ready", 100);
+      } catch (error) {
+        console.error(error);
+        setStatus(`Could not load file: ${error.message}`);
+        setProgress("Failed", 0);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function loadSample() {
+      try {
+        setBusy(true);
+        setProgress("Loading sample", 8);
+        const response = await fetch(SAMPLE_FILE);
+        if (!response.ok) {
+          throw new Error("sample file not reachable from this browser context");
+        }
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        await openPdfFromBytes(bytes, SAMPLE_FILE);
+        setStatus(`Loaded bundled sample ${SAMPLE_FILE}. Click “Scan dimensions” to run OCR.`);
+        setProgress("Ready", 100);
+      } catch (error) {
+        console.error(error);
+        setStatus(`Sample load failed. Some browsers block local file fetches on file://. If that happens, use “Upload drawing” and pick ${SAMPLE_FILE} manually.`);
+        setProgress("Blocked", 0);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function extractCandidates(ocrResult) {
+      const candidates = [];
+      const lines = (ocrResult.data && ocrResult.data.lines) || [];
+
+      lines.forEach((line) => {
+        const text = sanitize(line.text);
+        const dimension = scoreDimension(text, line.confidence || 0);
+        if (!dimension) {
+          return;
+        }
+
+        const box = {
+          x: Math.max(0, line.bbox.x0),
+          y: Math.max(0, line.bbox.y0),
+          w: Math.max(8, line.bbox.x1 - line.bbox.x0),
+          h: Math.max(8, line.bbox.y1 - line.bbox.y0)
+        };
+
+        candidates.push({
+          value: dimension.value,
+          confidence: dimension.score,
+          sourceText: dimension.sourceText,
+          anchorX: box.x + (box.w / 2),
+          anchorY: box.y + (box.h / 2),
+          box
+        });
+      });
+
+      if (!candidates.length) {
+        const words = (ocrResult.data && ocrResult.data.words) || [];
+        words.forEach((word) => {
+          const text = sanitize(word.text);
+          const dimension = scoreDimension(text, word.confidence || 0);
+          if (!dimension) {
+            return;
+          }
+          const box = {
+            x: Math.max(0, word.bbox.x0),
+            y: Math.max(0, word.bbox.y0),
+            w: Math.max(8, word.bbox.x1 - word.bbox.x0),
+            h: Math.max(8, word.bbox.y1 - word.bbox.y0)
+          };
+          candidates.push({
+            value: dimension.value,
+            confidence: dimension.score,
+            sourceText: dimension.sourceText,
+            anchorX: box.x + (box.w / 2),
+            anchorY: box.y + (box.h / 2),
+            box
+          });
+        });
+      }
+
+      return dedupeCandidates(candidates);
+    }
+
+    async function scanDimensions() {
+      if (!state.source) {
+        return;
+      }
+
+      try {
+        setBusy(true);
+        clearAnnotations();
+        setStatus("OCR is running in the browser. Large drawings may take a little while.");
+        setProgress("Preparing OCR", 5);
+
+        const dataUrl = els.canvas.toDataURL("image/png");
+        const result = await window.Tesseract.recognize(dataUrl, OCR_LANG, {
+          logger(message) {
+            if (message.status === "recognizing text") {
+              setProgress("Recognizing text", Math.round(message.progress * 72) + 18);
+            } else if (message.status === "loading tesseract core") {
+              setProgress("Loading OCR engine", 8);
+            } else if (message.status === "initializing tesseract") {
+              setProgress("Initializing OCR", 12);
+            }
+          }
+        });
+
+        const candidates = extractCandidates(result);
+        state.annotations = candidates.map((candidate, index) => createAnnotation(candidate, index));
+        state.scanSnapshot = state.annotations.map((item) => ({ ...item }));
+        state.activeId = state.annotations[0] ? state.annotations[0].id : null;
+        selectAnnotation(state.activeId);
+        renderAnnotations();
+        setProgress("Scan complete", 100);
+
+        if (state.annotations.length) {
+          setStatus(`Found ${state.annotations.length} dimension candidates on page ${state.currentPage}. You can now drag, relabel, delete, or add bubbles.`);
+        } else {
+          setStatus("OCR completed, but no strong dimension candidates were found. Try a cleaner page image or add bubbles manually.");
+        }
+      } catch (error) {
+        console.error(error);
+        setStatus(`OCR failed: ${error.message}`);
+        setProgress("Failed", 0);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function resetBubbles() {
+      if (!state.source) {
+        return;
+      }
+
+      if (state.scanSnapshot.length) {
+        state.annotations = state.scanSnapshot.map((item, index) => ({
+          ...item,
+          id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`
+        }));
+        state.activeId = state.annotations[0] ? state.annotations[0].id : null;
+        selectAnnotation(state.activeId);
+        renderAnnotations();
+        setStatus("Bubbles reset to the most recent OCR result.");
+      } else {
+        clearAnnotations();
+        setStatus("Cleared bubble layer.");
+      }
+    }
+
+    function addBubble() {
+      const index = state.annotations.length;
+      const annotation = {
+        id: `${Date.now()}-${index}-manual`,
+        label: `B${index + 1}`,
+        value: "1000 mm",
+        note: "manual bubble",
+        confidence: 1,
+        page: state.currentPage,
+        x: clamp((state.canvasWidth / 2) - 23 + (index % 4) * 18, 12, state.canvasWidth - 58),
+        y: clamp((state.canvasHeight / 2) - 23 + (index % 4) * 18, 12, state.canvasHeight - 58),
+        anchorX: clamp((state.canvasWidth / 2) - 70, 12, state.canvasWidth - 58),
+        anchorY: clamp((state.canvasHeight / 2) - 40, 12, state.canvasHeight - 58),
+        box: null,
+        manual: true
+      };
+      state.annotations.push(annotation);
+      selectAnnotation(annotation.id);
+      setStatus(`Added ${annotation.label}.`);
+    }
+
+    function deleteBubble() {
+      if (!state.activeId) {
+        return;
+      }
+      state.annotations = state.annotations.filter((item) => item.id !== state.activeId);
+      state.activeId = state.annotations[0] ? state.annotations[0].id : null;
+      selectAnnotation(state.activeId);
+      renderAnnotations();
+      setStatus("Bubble deleted.");
+    }
+
+    function exportExcel() {
+      if (!state.annotations.length) {
+        return;
+      }
+
+      const rows = state.annotations.map((item, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${item.label}</td>
+          <td>${item.value}</td>
+          <td>${item.note || ""}</td>
+          <td>${item.confidence.toFixed(2)}</td>
+          <td>${item.page}</td>
+          <td>${Math.round(item.anchorX)}</td>
+          <td>${Math.round(item.anchorY)}</td>
+          <td>${item.manual ? "manual" : "ocr"}</td>
+          <td>${state.source ? state.source.name : ""}</td>
+        </tr>
+      `).join("");
+
+      const workbook = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office"
+              xmlns:x="urn:schemas-microsoft-com:office:excel"
+              xmlns="http://www.w3.org/TR/REC-html40">
+          <head>
+            <meta charset="UTF-8" />
+            <style>
+              table { border-collapse: collapse; font-family: Arial, sans-serif; }
+              td, th { border: 1px solid #cbd5e1; padding: 8px; }
+              th { background: #f8fafc; }
+            </style>
+          </head>
+          <body>
+            <table>
+              <thead>
+                <tr>
+                  <th>No.</th>
+                  <th>Bubble</th>
+                  <th>Dimension</th>
+                  <th>Note</th>
+                  <th>Confidence</th>
+                  <th>Page</th>
+                  <th>Anchor X</th>
+                  <th>Anchor Y</th>
+                  <th>Source Type</th>
+                  <th>Drawing</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </body>
+        </html>
+      `;
+
+      const blob = new Blob([workbook], { type: "application/vnd.ms-excel" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "bubble-register.xls";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setStatus("Exported Excel-ready bubble register.");
+    }
+
+    async function rerenderCurrentPage() {
+      if (state.pdfDoc) {
+        await renderPdfPage(state.currentPage);
+      } else if (state.imageBitmap) {
+        await renderImage();
+      }
+      clearAnnotations();
+      updateControls();
+    }
+
+    function onPointerMove(event) {
+      if (!state.dragging) {
+        return;
+      }
+
+      const annotation = state.annotations.find((item) => item.id === state.dragging.id);
+      if (!annotation) {
+        return;
+      }
+
+      const viewerRect = els.viewer.getBoundingClientRect();
+      const canvasX = ((event.clientX - viewerRect.left) + els.viewer.scrollLeft) / state.zoom;
+      const canvasY = ((event.clientY - viewerRect.top) + els.viewer.scrollTop) / state.zoom;
+      annotation.x = clamp(canvasX - state.dragging.dx, 8, state.canvasWidth - 54);
+      annotation.y = clamp(canvasY - state.dragging.dy, 8, state.canvasHeight - 54);
+      renderAnnotations();
+    }
+
+    function onPointerUp() {
+      state.dragging = null;
+    }
+
+    function handleDropState(isDragging) {
+      els.dropzone.classList.toggle("dragging", isDragging);
+    }
+
+    els.fileInput.addEventListener("change", (event) => {
+      loadFile(event.target.files[0]);
+    });
+
+    els.loadSampleBtn.addEventListener("click", loadSample);
+    els.scanBtn.addEventListener("click", scanDimensions);
+    els.resetBtn.addEventListener("click", resetBubbles);
+    els.exportBtn.addEventListener("click", exportExcel);
+    els.addBtn.addEventListener("click", addBubble);
+    els.deleteBtn.addEventListener("click", deleteBubble);
+
+    els.bubbleLabel.addEventListener("input", syncSelectedBubble);
+    els.bubbleValue.addEventListener("input", syncSelectedBubble);
+    els.bubbleNote.addEventListener("input", syncSelectedBubble);
+
+    els.pageSelect.addEventListener("change", async () => {
+      state.currentPage = Number(els.pageSelect.value);
+      try {
+        setBusy(true);
+        await rerenderCurrentPage();
+      } finally {
+        setBusy(false);
+      }
+    });
+
+    els.zoomSelect.addEventListener("change", () => {
+      state.zoom = Number(els.zoomSelect.value);
+      updateSurfaceSize();
+    });
+
+    els.viewer.addEventListener("pointermove", onPointerMove);
+    els.viewer.addEventListener("pointerup", onPointerUp);
+    els.viewer.addEventListener("pointercancel", onPointerUp);
+    els.viewer.addEventListener("pointerleave", onPointerUp);
+
+    ["dragenter", "dragover"].forEach((type) => {
+      els.dropzone.addEventListener(type, (event) => {
+        event.preventDefault();
+        handleDropState(true);
+      });
+    });
+
+    ["dragleave", "dragend"].forEach((type) => {
+      els.dropzone.addEventListener(type, () => {
+        handleDropState(false);
+      });
+    });
+
+    els.dropzone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      handleDropState(false);
+      const file = event.dataTransfer.files[0];
+      loadFile(file);
+    });
+
+    window.addEventListener("resize", updateSurfaceSize);
+
+    updateControls();
+    updateSurfaceSize();
+    setProgress("Idle", 0);
+  </script>
+</body>
+</html>
