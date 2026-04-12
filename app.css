@@ -141,6 +141,22 @@ button:disabled,
   line-height: 1.55;
 }
 
+.lead a,
+.panel-card p a,
+.viewer-toolbar p a,
+.table-head p a {
+  color: var(--teal);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.lead a:hover,
+.panel-card p a:hover,
+.viewer-toolbar p a:hover,
+.table-head p a:hover {
+  text-decoration: underline;
+}
+
 .eyebrow {
   display: inline-flex;
   align-items: center;

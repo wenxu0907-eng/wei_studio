@@ -43,6 +43,7 @@ const els = {
   accessFeedback: document.getElementById("access-feedback"),
   appShell: document.getElementById("app-shell"),
   fileInput: document.getElementById("file-input"),
+  uploadBtn: document.getElementById("upload-btn"),
   loadSampleBtn: document.getElementById("load-sample-btn"),
   sourceKind: document.getElementById("source-kind"),
   scanState: document.getElementById("scan-state"),
@@ -234,6 +235,7 @@ function updateControls() {
   els.qwenState.textContent = hasSavedQwen ? "已保存" : hasQwenKey ? "待保存" : "未配置";
 
   els.fileInput.disabled = state.busy;
+  els.uploadBtn.disabled = !hasSavedQwen || state.busy;
   els.loadSampleBtn.disabled = !hasSavedQwen || state.busy;
   els.scanBtn.disabled = !hasSavedQwen || !hasSource || state.busy;
   els.resetBtn.disabled = !hasSource || state.busy;
@@ -1911,6 +1913,15 @@ function toggleDropzoneState(isDragging) {
 
 els.fileInput.addEventListener("change", (event) => {
   loadFile(event.target.files[0]);
+});
+
+els.uploadBtn.addEventListener("click", () => {
+  if (!hasSavedQwenSettings()) {
+    setStatus("请先完成并保存 API 设置，再上传图纸。");
+    return;
+  }
+  els.fileInput.value = "";
+  els.fileInput.click();
 });
 
 els.unlockBtn.addEventListener("click", unlockPage);

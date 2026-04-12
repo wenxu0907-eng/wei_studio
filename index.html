@@ -84,6 +84,7 @@
           <button class="btn btn-ghost" id="save-qwen-btn" type="button">保存 API 设置</button>
         </div>
         <p class="lead">先填写并保存 Qwen API 设置。配置完成后，再加载示例图纸或上传客户图纸，开始首轮识别。</p>
+        <p class="lead">获取阿里云 Qwen API Key 的最短路径：1. 注册并登录阿里云 Model Studio；2. 如页面提示，先开通服务以领取新用户免费额度；3. 进入 API Key 页面创建 Key，建议选择默认工作空间。官方文档：<a href="https://www.alibabacloud.com/help/en/model-studio/get-api-key" target="_blank" rel="noreferrer">Get an API key</a>，快速开始：<a href="https://www.alibabacloud.com/help/en/model-studio/getting-started/quick-start/" target="_blank" rel="noreferrer">Make your first API call to Qwen</a>。</p>
       </section>
 
       <section class="panel-card">
@@ -95,7 +96,7 @@
           <p>先配置 API，再点击“加载示例”打开内置演示图纸 `3910992永利版.pdf`，或上传你自己的 `PDF / PNG / JPG`。所有处理都在浏览器本地完成。</p>
           <div class="button-row">
             <button class="btn btn-secondary" id="load-sample-btn" type="button">加载示例</button>
-            <label class="btn btn-primary" for="file-input">上传图纸</label>
+            <button class="btn btn-primary" id="upload-btn" type="button">上传图纸</button>
           </div>
           <input id="file-input" type="file" accept=".pdf,image/*" />
         </div>

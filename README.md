@@ -37,3 +37,17 @@ Then open:
 - The sample PDF is bundled into [sample-data.js](./sample-data.js) so the demo sample can load more reliably.
 - Qwen API settings are entered in the browser. For a client-facing production deployment, a small backend proxy is safer than exposing a shared API key in the front end.
 - The site includes a lightweight access-code gate for GitHub Pages demos. The current access code is `975310`. If you want to rotate it later, replace `ACCESS_CODE_HASH` in [app.js](./app.js) with the SHA-256 hash of your new shared code.
+
+## Get A Qwen API Key
+
+Concise working path:
+
+1. Open Alibaba Cloud Model Studio and sign in.
+2. If prompted, activate the service first so the account can use Model Studio and any available new-user free quota.
+3. Open the API key page and create a key in your workspace.
+4. Paste that key into the app's `API 密钥` field and save it.
+
+Official documentation:
+
+- [Get an API key](https://www.alibabacloud.com/help/en/model-studio/get-api-key)
+- [Quick start: Make your first API call to Qwen](https://www.alibabacloud.com/help/en/model-studio/getting-started/quick-start/)
