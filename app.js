@@ -1653,11 +1653,10 @@ function mergeQwenResults(payload) {
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
       return false;
     }
-    const inTitleBlock = x > 0.72 && y > 0.56;
-    const inRightTable = x > 0.72 && y > 0.18;
-    const inNotesBlock = x > 0.20 && x < 0.70 && y > 0.52;
-    const inBottomToleranceTable = x < 0.18 && y > 0.78;
-    return inTitleBlock || inRightTable || inNotesBlock || inBottomToleranceTable;
+    // Only filter the actual title block corner and narrow tolerance table strip
+    const inTitleBlock = x > 0.82 && y > 0.85;
+    const inBottomToleranceTable = x < 0.10 && y > 0.90;
+    return inTitleBlock || inBottomToleranceTable;
   }
 
   function closestMatch(annotation) {
@@ -1751,44 +1750,35 @@ function mergeQwenResults(payload) {
 function defaultQwenSystemPrompt(passMode) {
   if (passMode === "first-pass") {
     return [
-      "你是 qwen3.6-plus 上运行的高可靠性机械图纸尺寸提取模型。",
-      "只能返回合法 JSON。",
-      "首轮任务：直接从原始图纸中生成初始气泡集合。",
-      "首轮优先级：1. 数值与公差不要串位；2. anchor_hint 优先贴近对应数值文字本身，且不能落到附近另一个尺寸数字上；3. 在保证前两项的前提下尽量提高覆盖率。",
-      "必须逐视图检查：主视图、次级视图、局部视图、剖面视图、圆孔区域、下方视图、右侧视图都要单独复查。",
-      "一个有效标注必须明确附着在尺寸线、引出线、角度弧线、半径/直径标注或几何相关公差信息上。",
-      "如果一个区域已经识别出一个尺寸，应继续检查该区域相邻的链式尺寸、并列尺寸、角度、半径、直径和小尺寸，不要只抓一个样本就停止。",
-      "首轮要特别优先补齐容易漏掉的值：小尺寸、盒内尺寸、局部视图中的尺寸、靠近 GD&T 框或基准符号的尺寸、直径符号 Φ 附近的尺寸、短竖向尺寸、短横向尺寸、以及圆孔附近的尺寸。",
-      "如果某个局部已经识别到一个尺寸，说明该局部很可能还存在其他相邻尺寸；必须继续复查直到没有明显遗漏。",
+      "你是 qwen3.6-plus 上运行的高可靠性机械图纸尺寸提取模型。只能返回合法 JSON。首轮任务：直接从原始图纸中生成初始气泡集合。",
 
-      "【螺纹标注】必须识别螺纹规格，例如 M13.18、M10×1.5、M8-6H 等。螺纹标注通常出现在孔或轴的引出线末端，value 应写为完整螺纹规格（如 'M13.18'），region_type 为 geometry_dimension。",
-      "【GD&T 特征控制框】必须识别几何公差框（矩形方框内含符号和数值），例如位置度 ⌖ 0.05、平面度 ⏥ 0.02、圆度 ○ 0.01 等。value 应写为公差值（如 '0.05'），source_text 应包含完整框内容（如 '⌖ Φ0.05 M A B'），region_type 为 geometry_gdt。如果框中包含基准引用（A、B、C），应在 note 中注明。",
-      "【复合尺寸】必须识别形如 22.0 × 6.1 的复合尺寸（宽×高、长×宽等），value 应保留完整写法（如 '22.0 × 6.1'），不要拆分成两个独立标注。",
-      "【上下偏差堆叠格式】当看到主值上方有一个小数字、下方有另一个小数字时（如 R11.5 上方 +0.3 下方 -0.1），这是上下偏差格式。tolerance 应写为 '+0.3/-0.1'，不要只取其中一个。source_text 应写为 'R11.5 +0.3 -0.1'。",
-      "【括号参考尺寸】括号中的尺寸（如 (114.8°)、(20.0)）是参考尺寸，仍然需要提取。value 不含括号，source_text 保留括号。在 note 中注明'参考尺寸'。",
-      "【配合公差代号】必须识别配合公差代号，如 h9、H7、f6、js6 等，通常紧跟在尺寸值后面。应将其写入 tolerance 字段（如 value='Φ13.18', tolerance='h9'）。",
-      "【表面粗糙度】如果尺寸标注附近有表面粗糙度符号（√ 形或三角形带数值），应作为单独标注提取，region_type 为 geometry_tolerance，value 为粗糙度值（如 'Ra 1.6'）。",
-      "【基准符号】基准标记（三角旗 + 字母，如 A、B、C）本身不需要单独提取为气泡，但如果基准符号旁边有附着的尺寸值，该尺寸不能遗漏。",
-      "【R 和 Φ 前缀】半径标注以 R 开头（如 R15.0、R239.0、R11.5），直径标注以 Φ 开头（如 Φ13.18、Φ3.0、Φ9.45）。value 必须保留 R 或 Φ 前缀，不要丢掉。",
+      // --- TOP PRIORITY: Anti-mixing ---
+      "【最高优先级：禁止跨位置混合】绝对不要把来自两个不同位置、不同尺寸线、不同引出线的数字或公差拼成一个标注。上下偏差（如 +0.3/-0.1）只能归属于与其物理上最近且共享同一尺寸线的主值。角度标注（°结尾）几乎不带 +/-偏差——如果你准备给角度填偏差，必须确认偏差文字紧贴角度数字本身。不确定就只返回主值，不要合并。",
 
-      "数字识别要谨慎，优先保证准确率：仔细区分 0/6/8/9、1/7、3/8、5/6、O/0、I/1、2/4、小数点、R、Φ、°、括号值、上下偏差和 ± 符号。",
-      "特别注意 2 和 4 的区分：在手写体或低分辨率区域，2 的弧线底笔容易被误读为 4 的尖角；如果上下文是 R 开头的半径值，应结合圆弧几何合理性判断（例如 R239 和 R439 差异极大，选择与图中圆弧曲率更匹配的值）。",
-      "特别注意角度值的精确读取：1 和 7 容易混淆，.1 和 .7 在小字号下极易误读；应结合角度弧线的张角大小做合理性校验。",
-      "绝对不要把来自两个不同位置、不同箭头、不同尺寸线、不同引出线、不同框的数字拼成一个标注。",
-      "上下偏差（如 +0.3/-0.1）只能归属于与其物理上最近且共享同一尺寸线或引出线的主值。如果上下偏差文字紧贴在某个主值（如 R11.5）的右侧或上下方，就只能属于该主值，不能被吸附到附近另一个不同类型的标注（如角度值）上。",
-      "角度标注（°结尾）通常只有主值，很少带 +/-偏差；如果你准备给角度标注填写上下偏差，必须确认偏差文字确实紧贴角度数字本身，而不是来自附近的线性或半径标注。",
-      "只有在确认主值、公差、上下偏差或标准误差属于同一个尺寸调用时，才允许把它们填入同一 annotation。判断标准：它们必须在视觉上属于同一组文字，或共享同一条尺寸线/引出线。",
-      "如果不能确认公差或 ± 值属于同一个调用，宁可只返回主尺寸值，也不要强行合并。",
-      "anchor_hint 的首选目标，是对应数值文字或数值文字组本身的位置，而不是箭头尖端或尺寸线中点。",
-      "如果主尺寸值与公差、上下偏差或标准误差属于同一个文字组，anchor_hint 应优先落在这组文字的中心附近。",
-      "如果该标注的主要识别依据是数值文字，anchor_hint 应贴近数值文字，不必强行移到箭头尖端。",
-      "只有当数值文字极不清晰、被遮挡或无法稳定定位时，才退而求其次使用对应箭头或尺寸线附近位置。",
-      "若相邻有两个或多个尺寸数字，例如上方一个、下方一个、左边一个、右边一个，anchor_hint 必须只选择与当前 value 完全对应的那个数字文字，不能因为距离更近就吸附到其他数字上。",
-      "例如 value 是 20.0 时，anchor_hint 必须落在 20.0 文字附近，不能落在旁边的 10.0、119.8 或其他数字附近。",
-      "例如 value 是 10.0 时，anchor_hint 必须落在 10.0 文字附近，不能落在下方 20.0 文字附近。",
-      "必须严格忽略标题栏、修订表、备注段落、标准引用、公差表、公司信息、比例标签以及与零件几何无关的图纸文本。",
-      "如果文本含糊不清、几何关系不明确或怀疑发生跨位置拼接，就跳过，不要臆造。",
-      "不要输出填充值、重复锚点或占位尺寸。"
+      // --- ANCHOR RULES (3 crisp rules) ---
+      "【锚点三原则】① anchor_hint = 数值文字的中心坐标，不是箭头尖端、尺寸线中点或弧线中部。② 相邻多个数字时，anchor_hint 必须精确对应 value 那个数字文字，不能吸附到邻居数字上。③ 同一文字组（主值+公差）取组中心；不同文字组绝对不合并锚点。",
+
+      // --- NUMBER ACCURACY ---
+      "【数值准确性】仔细区分 2/4（R开头时结合圆弧曲率判断）、1/7（角度末位时结合弧线张角判断）、0/6/8/9、3/8、5/6、O/0、I/1、小数点。R 和 Φ 前缀必须保留。",
+
+      // --- COVERAGE ---
+      "首轮优先级排序：1. 不混合不同位置的数字；2. anchor精确对应数值文字；3. 数值准确；4. 覆盖率。",
+      "必须逐视图检查：主视图、次级视图、局部视图、剖面视图、圆孔区域、下方视图、右侧视图。",
+      "如果一个区域已识别出一个尺寸，继续检查该区域相邻的链式尺寸、并列尺寸、角度、半径、直径和小尺寸。",
+      "优先补齐容易漏掉的值：小尺寸、盒内尺寸、局部视图尺寸、GD&T 框附近尺寸、Φ 附近尺寸、短竖向/横向尺寸、圆孔附近尺寸。",
+
+      // --- DIMENSION TYPE RULES ---
+      "【螺纹】M开头的螺纹规格必须提取，value 写完整规格。",
+      "【GD&T框】矩形框内的几何公差必须提取，value 写公差值，source_text 写完整框内容，region_type 为 geometry_gdt。",
+      "【复合尺寸】如 22.0 × 6.1，value 保留完整写法不拆分。",
+      "【上下偏差】主值上方+下方数字组成 tolerance（如 '+0.3/-0.1'），必须读取两个值。",
+      "【括号参考尺寸】括号内尺寸仍需提取，value 不含括号，note 注明'参考尺寸'。",
+      "【配合公差代号】h9/H7/f6 等写入 tolerance 字段。",
+      "【表面粗糙度】√形符号作为独立标注，region_type 为 geometry_tolerance。",
+
+      // --- EXCLUSIONS ---
+      "严格忽略标题栏、修订表、备注段落、公差表、公司信息和比例标签。",
+      "不确定就跳过，不要臆造。不要输出填充值、重复锚点或占位尺寸。"
     ].join(" ");
   }
   return [
@@ -1845,26 +1835,10 @@ function defaultBuildQwenPrompt(passMode = "review-pass") {
     "对于直径值、半径值、小数值和短尺寸，宁可多做一次局部放大式视觉检查，也不要因为字符较小或靠近其他图元就漏掉。",
     "对于盒内尺寸、局部视图中的尺寸、圆孔周围尺寸和靠近 GD&T/基准符号的尺寸，不能因为它们视觉上独立或位置偏边缘就忽略。",
     "对于螺纹标注（M开头）、配合公差代号（h9/H7/f6等）、GD&T特征控制框（矩形框内的几何公差）、复合尺寸（如 22.0×6.1）、上下偏差堆叠格式，必须逐一检查，不能遗漏。",
-    "如果图上同时出现主尺寸值、公差、上下偏差或标准误差，并且它们明确属于同一个尺寸调用，请分别填写 value、tolerance、standard_error；如果不能确认属于同一个调用，就不要强行合并。",
-    "不要因为某个主尺寸值附近恰好存在 ± 符号或上下偏差文字，就默认它们属于同一个标注；必须确认它们共享同一尺寸线、同一引出线或同一箭头关系。",
-    "anchor_hint 应优先表示该标注对应的数值文字位置，而不是几何附着点。",
-    "anchor_hint 必须与 value 一一对应：如果 value 是某个具体数字，锚点就必须贴近那个数字文字本身，而不是附近其他数字。",
-    "如果主尺寸值与公差、上下偏差或标准误差属于同一个文字组，anchor_hint 应尽量落在这组文字中心附近。",
-    "如果只有主尺寸值清晰可见，anchor_hint 就贴近主尺寸值文字。",
-    "如果数值文字清晰可见，不要把 anchor_hint 强行移到箭头尖端、尺寸线中点或角度弧线中部。",
-    "对于角度标注，若角度数字文字清晰，anchor_hint 应优先落在角度数字附近，而不是角度弧线中部。",
-    "对于线性尺寸，若尺寸数字文字清晰，anchor_hint 应优先落在与当前 value 对应的尺寸数字附近，而不是附近其他数字，也不是线性尺寸线中点。",
-    "对于半径、直径或单箭头引出标注，若 R 值、Φ 值或对应公差文字清晰，anchor_hint 应优先落在这些文字附近。",
-    "把文字识别出来是为了填 value、tolerance 和 source_text；确定 anchor_hint 时应优先以对应数值文字位置为准。",
-    "如果某个值明显属于右侧圆孔区域、下方细长视图或左上角密集角度区域，anchor_hint 也必须留在那个局部文字附近，不要错误漂移到主视图中央。",
-    "如果 10.0 和 20.0、或其他相邻数字同时出现，必须根据 value 精确选择对应那一个，不能锚在相邻数字上。",
-    "如果用户在第二轮前手动新增了多个锚点，说明这些位置是首轮漏掉但人工确认存在的真实尺寸；第二轮应优先围绕这些区域补全结果。",
-    "不要编造类似重复 1.0 这样的占位值。",
-    "不要让很多标注重复使用同一个 anchor_hint。",
-    "如果一个值中包含公差，请拆分为 value 和 tolerance。",
-    "note 字段必须使用简体中文，简短描述该尺寸的位置、视图或识别判断依据。",
-    "不要把所有标签都重命名为 A。应保留或分配稳定的气泡标签，例如 B1、B2、B3。",
-    "view_name 建议使用简体中文，例如“主视图”、“局部视图”、“右端圆孔视图”。",
+    "公差/偏差只能归属于共享同一尺寸线/引出线的主值；不确定就只返回主值。",
+    "anchor_hint 规则见系统提示（数值文字中心、精确对应 value、不漂移到邻居）。",
+    "不要编造占位值、重复锚点。如果含公差，拆分为 value 和 tolerance。",
+    "note 用简体中文。标签用 B1、B2、B3 序列。view_name 用简体中文（如'主视图'、'局部视图'）。",
     "输出格式：",
     JSON.stringify({
       annotations: [
@@ -1969,39 +1943,65 @@ function buildQwenPrompt(passMode = "review-pass") {
 
 function postProcessAnnotations(items) {
   const source = Array.isArray(items) ? items : [];
-  return source.map((item) => {
+  const hasDegreeSym = (s) => /[\u00B0\u00BA°]/.test(s);
+
+  // Pass 1: per-item fixes
+  const processed = source.map((item) => {
     const v = sanitize(item.value);
     const tol = sanitize(item.tolerance);
-    const se = sanitize(item.standard_error);
+    const se = sanitize(item.standard_error || item.standardError || "");
 
-    // Rule 1: Angle values (ending with °) should not carry +/- deviations —
-    // these are almost always cross-referenced from a nearby linear/radius dim.
-    if (v.includes("°") && (tol.match(/^[+-]/) || se.match(/^[+-]/))) {
+    // Rule 1: Angle values should never carry +/- deviations — cross-location mixing
+    if (hasDegreeSym(v) && (/^[+-]/.test(tol) || /^[+-]/.test(se))) {
       item.tolerance = "";
       item.standard_error = "";
+      item.standardError = "";
       item.source_text = sanitize(item.source_text).replace(/\s*[+-]\d+[\d.]*\s*\/?\s*[+-]?\d*[\d.]*/g, "").trim();
       item.note = (item.note || "") + " [自动修正：移除了可能误归属的偏差]";
       item.confidence = Math.min(Number(item.confidence || 0), 0.7);
     }
 
-    // Rule 2: If a tolerance looks like +X/-Y but is on a non-R, non-Φ, non-numeric value, strip it
-    if (tol.match(/^[+-]/) && !v.match(/^[R\u03a6\d]/)) {
+    // Rule 2: Strip +/- tolerance from values that shouldn't have them
+    if (/^[+-]/.test(tol) && !v.match(/^[R\u03a6\d]/)) {
       item.tolerance = "";
       item.note = (item.note || "") + " [自动修正：偏差不匹配值类型]";
     }
 
-    // Rule 3: Flag suspiciously large R values — R400+ is rare, may be a 2→4 misread
-    const rMatch = v.match(/^R(\d+(\.\d+)?)/);
-    if (rMatch) {
-      const rVal = parseFloat(rMatch[1]);
-      if (rVal >= 400) {
-        item.confidence = Math.min(Number(item.confidence || 0), 0.6);
-        item.note = (item.note || "") + " [警告：R值偏大，请确认是否为2/4误读]";
+    // Rule 3: Flag angle values ending in .7 — common .1→.7 misread
+    const angleMatch = v.match(/([\d.]+)[\u00B0\u00BA°]$/);
+    if (angleMatch) {
+      const numStr = angleMatch[1];
+      if (numStr.endsWith("7") || numStr.match(/\.7\d*$/)) {
+        item.confidence = Math.min(Number(item.confidence || 0), 0.7);
+        item.note = (item.note || "") + " [提示：角度末位7易与1混淆，请确认]";
       }
     }
 
     return item;
   });
+
+  // Pass 2: cross-annotation tolerance dedup — if two annotations share the same
+  // tolerance text, keep it only on the R/Φ/linear value, strip from angles
+  const tolGroups = new Map();
+  processed.forEach((item, i) => {
+    const tol = sanitize(item.tolerance);
+    if (tol && /^[+-]/.test(tol)) {
+      if (!tolGroups.has(tol)) tolGroups.set(tol, []);
+      tolGroups.get(tol).push(i);
+    }
+  });
+  tolGroups.forEach((indices) => {
+    if (indices.length < 2) return;
+    indices.forEach((i) => {
+      const v = sanitize(processed[i].value);
+      if (hasDegreeSym(v)) {
+        processed[i].tolerance = "";
+        processed[i].note = (processed[i].note || "") + " [自动修正：重复偏差已归属其他标注]";
+      }
+    });
+  });
+
+  return processed;
 }
 
 function normalizeIncomingAnnotations(items) {
