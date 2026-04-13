@@ -47,7 +47,7 @@ Concise working path:
 3. Open the API key page and create a key in your workspace.
 4. Paste that key into the app's `API 密钥` field and save it.
 
-Official documentation:
+官方文档：
 
-- [Get an API key](https://www.alibabacloud.com/help/en/model-studio/get-api-key)
-- [Quick start: Make your first API call to Qwen](https://www.alibabacloud.com/help/en/model-studio/getting-started/quick-start/)
+- [获取 API Key](https://www.alibabacloud.com/help/zh/model-studio/get-api-key)
+- [调用 Qwen 模型](https://www.alibabacloud.com/help/zh/model-studio/first-api-call-to-qwen)

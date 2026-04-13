@@ -81,6 +81,9 @@ const els = {
   renumberBtn: document.getElementById("renumber-btn"),
   progressFill: document.getElementById("progress-fill"),
   progressCopy: document.getElementById("progress-copy"),
+  busyOverlay: document.getElementById("busy-overlay"),
+  busyTitle: document.getElementById("busy-title"),
+  busyDetail: document.getElementById("busy-detail"),
   bubbleLabel: document.getElementById("bubble-label"),
   bubbleValue: document.getElementById("bubble-value"),
   bubbleNote: document.getElementById("bubble-note"),
@@ -99,8 +102,13 @@ const els = {
   qwenModel: document.getElementById("qwen-model"),
   qwenBaseUrl: document.getElementById("qwen-base-url"),
   qwenExtraHeaders: document.getElementById("qwen-extra-headers"),
+  qwenFirstSystemPrompt: document.getElementById("qwen-first-system-prompt"),
+  qwenFirstUserPrompt: document.getElementById("qwen-first-user-prompt"),
+  qwenReviewSystemPrompt: document.getElementById("qwen-review-system-prompt"),
+  qwenReviewUserPrompt: document.getElementById("qwen-review-user-prompt"),
   runQwenBtn: document.getElementById("run-qwen-btn"),
   saveQwenBtn: document.getElementById("save-qwen-btn"),
+  resetPromptsBtn: document.getElementById("reset-prompts-btn"),
   statusCard: document.getElementById("status-card"),
   filePill: document.getElementById("file-pill"),
   pagePill: document.getElementById("page-pill"),
@@ -175,12 +183,18 @@ async function unlockPage() {
 
 function setStatus(message) {
   els.statusCard.textContent = message;
+  if (state.busy) {
+    els.busyDetail.textContent = message;
+  }
 }
 
 function setProgress(label, percent) {
   els.progressCopy.textContent = label;
   els.progressFill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
   els.scanState.textContent = label;
+  if (state.busy) {
+    els.busyTitle.textContent = label;
+  }
 }
 
 function sanitize(text) {
@@ -234,6 +248,12 @@ function markSaved() {
 
 function setBusy(isBusy) {
   state.busy = isBusy;
+  els.busyOverlay.hidden = !isBusy;
+  els.busyOverlay.style.display = isBusy ? "grid" : "none";
+  if (isBusy) {
+    els.busyTitle.textContent = els.progressCopy.textContent || "处理中";
+    els.busyDetail.textContent = els.statusCard.textContent || "模型响应通常需要一点时间，请不要关闭页面。";
+  }
   updateControls();
 }
 
@@ -352,10 +372,18 @@ function normalizeDimension(text) {
 function getQwenSettings() {
   return {
     apiKey: sanitize(els.qwenApiKey.value),
-    model: sanitize(els.qwenModel.value) || "qwen3-vl-plus",
+    model: sanitize(els.qwenModel.value) || "qwen3.6-plus",
     baseUrl: sanitize(els.qwenBaseUrl.value).replace(/\/$/, "") || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-    extraHeadersRaw: els.qwenExtraHeaders.value.trim()
+    extraHeadersRaw: els.qwenExtraHeaders.value.trim(),
+    firstSystemPrompt: els.qwenFirstSystemPrompt.value.trim(),
+    firstUserPrompt: els.qwenFirstUserPrompt.value.trim(),
+    reviewSystemPrompt: els.qwenReviewSystemPrompt.value.trim(),
+    reviewUserPrompt: els.qwenReviewUserPrompt.value.trim()
   };
+}
+
+function currentModelLabel() {
+  return sanitize(els.qwenModel.value) || "Qwen";
 }
 
 function hasSavedQwenSettings() {
@@ -372,6 +400,23 @@ function hasSavedQwenSettings() {
   }
 }
 
+let qwenSaveFeedbackTimer = null;
+
+function showQwenSaveSuccess() {
+  if (qwenSaveFeedbackTimer) {
+    clearTimeout(qwenSaveFeedbackTimer);
+  }
+  els.saveQwenBtn.textContent = "已保存 API 设置";
+  els.saveQwenBtn.classList.add("save-success");
+  els.qwenState.textContent = "已保存设置";
+  qwenSaveFeedbackTimer = setTimeout(() => {
+    els.saveQwenBtn.textContent = "保存 API 设置";
+    els.saveQwenBtn.classList.remove("save-success");
+    updateControls();
+    qwenSaveFeedbackTimer = null;
+  }, 2200);
+}
+
 function saveQwenSettings() {
   const settings = getQwenSettings();
   if (!settings.apiKey) {
@@ -380,24 +425,38 @@ function saveQwenSettings() {
   }
   localStorage.setItem(QWEN_SETTINGS_KEY, JSON.stringify(settings));
   updateControls();
+  showQwenSaveSuccess();
   setStatus("已在当前浏览器中保存 Qwen API 设置。下一步请加载示例图纸或上传客户图纸。");
+}
+
+function fillPromptEditorsFromDefaults() {
+  els.qwenFirstSystemPrompt.value = defaultQwenSystemPrompt("first-pass");
+  els.qwenFirstUserPrompt.value = defaultBuildQwenPrompt("first-pass");
+  els.qwenReviewSystemPrompt.value = defaultQwenSystemPrompt("review-pass");
+  els.qwenReviewUserPrompt.value = defaultBuildQwenPrompt("review-pass");
 }
 
 function loadQwenSettings() {
   try {
     const raw = localStorage.getItem(QWEN_SETTINGS_KEY);
     if (!raw) {
-      els.qwenModel.value = "qwen3-vl-plus";
+      els.qwenModel.value = "qwen3.6-plus";
       els.qwenBaseUrl.value = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
+      fillPromptEditorsFromDefaults();
       return;
     }
     const settings = JSON.parse(raw);
     els.qwenApiKey.value = settings.apiKey || "";
-    els.qwenModel.value = settings.model || "qwen3-vl-plus";
+    els.qwenModel.value = settings.model || "qwen3.6-plus";
     els.qwenBaseUrl.value = settings.baseUrl || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
     els.qwenExtraHeaders.value = settings.extraHeadersRaw || "";
+    els.qwenFirstSystemPrompt.value = settings.firstSystemPrompt || defaultQwenSystemPrompt("first-pass");
+    els.qwenFirstUserPrompt.value = settings.firstUserPrompt || defaultBuildQwenPrompt("first-pass");
+    els.qwenReviewSystemPrompt.value = settings.reviewSystemPrompt || defaultQwenSystemPrompt("review-pass");
+    els.qwenReviewUserPrompt.value = settings.reviewUserPrompt || defaultBuildQwenPrompt("review-pass");
   } catch (error) {
     console.error(error);
+    fillPromptEditorsFromDefaults();
   }
 }
 
@@ -666,6 +725,20 @@ function annotationTheme(item) {
   };
 }
 
+function annotationDisplayValue(item) {
+  const parts = [];
+  if (item.value) {
+    parts.push(item.value);
+  }
+  if (item.tolerance) {
+    parts.push(item.tolerance);
+  }
+  if (item.standardError) {
+    parts.push(item.standardError);
+  }
+  return parts.join(" ").trim();
+}
+
 function drawRoundedRect(context, x, y, width, height, radius) {
   const r = Math.min(radius, width / 2, height / 2);
   context.beginPath();
@@ -721,7 +794,8 @@ function drawAnnotationGraphics(context, options = {}) {
     context.stroke();
 
     if (includeChips) {
-      const chipText = item.value ? `${item.label} · ${item.value}` : `${item.label} · 用户锚点`;
+      const displayValue = annotationDisplayValue(item);
+      const chipText = displayValue ? `${item.label} · ${displayValue}` : `${item.label} · 用户锚点`;
       context.font = "700 12px PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, Avenir Next, Segoe UI, sans-serif";
       const textWidth = context.measureText(chipText).width;
       const chipWidth = textWidth + 20;
@@ -830,7 +904,10 @@ function renderAnnotations() {
     tag.className = `bubble-chip${item.manual || item.userAdjusted ? " user-adjusted" : ""}`;
     tag.style.left = `${item.anchorX}px`;
     tag.style.top = `${item.anchorY}px`;
-    tag.textContent = item.value ? `${item.label} · ${item.value}` : `${item.label} · 用户锚点`;
+    {
+      const displayValue = annotationDisplayValue(item);
+      tag.textContent = displayValue ? `${item.label} · ${displayValue}` : `${item.label} · 用户锚点`;
+    }
 
     const bubble = document.createElement("button");
     bubble.type = "button";
@@ -1507,6 +1584,47 @@ function qwenExtraHeaders() {
   }
 }
 
+function parseAnnotationFields(annotation) {
+  const rawValue = sanitize(annotation && annotation.value);
+  const rawTolerance = sanitize(annotation && annotation.tolerance);
+  const rawStandardError = sanitize((annotation && (annotation.standard_error || annotation.standardError)) || "");
+  const sourceText = sanitize((annotation && annotation.source_text) || rawValue);
+
+  let value = rawValue;
+  let tolerance = rawTolerance;
+  let standardError = rawStandardError;
+
+  if (!value && sourceText) {
+    const valueMatch = sourceText.match(/(?:R|r|Φ|⌀)?\s*\d+(?:\.\d+)?(?:°)?/);
+    if (valueMatch) {
+      value = sanitize(valueMatch[0]);
+    }
+  }
+
+  if (value && sourceText) {
+    let stripped = sourceText;
+    if (tolerance) {
+      stripped = sanitize(stripped.replace(tolerance, ""));
+    }
+    if (standardError) {
+      stripped = sanitize(stripped.replace(standardError, ""));
+    }
+    if (!rawValue || rawValue === sourceText) {
+      const cleanedValueMatch = stripped.match(/(?:R|r|Φ|⌀)?\s*\d+(?:\.\d+)?(?:°)?/);
+      if (cleanedValueMatch) {
+        value = sanitize(cleanedValueMatch[0]);
+      }
+    }
+  }
+
+  return {
+    value,
+    tolerance,
+    standardError,
+    sourceText
+  };
+}
+
 function mergeQwenResults(payload) {
   const incoming = Array.isArray(payload.annotations) ? payload.annotations : [];
   const used = new Set();
@@ -1533,12 +1651,6 @@ function mergeQwenResults(payload) {
         return byLabel;
       }
     }
-    if (annotation.value) {
-      const byValue = state.annotations.find((item) => item.value === annotation.value && !used.has(item.id));
-      if (byValue) {
-        return byValue;
-      }
-    }
     if (annotation.anchor_hint) {
       let best = null;
       let bestScore = Infinity;
@@ -1560,6 +1672,7 @@ function mergeQwenResults(payload) {
   }
 
   incoming.forEach((annotation) => {
+    const parsed = parseAnnotationFields(annotation);
     const regionType = sanitize(annotation.region_type).toLowerCase();
     const attachedToGeometry = annotation.is_attached_to_part_geometry !== false;
     const normalizedX = annotation.anchor_hint && Number(annotation.anchor_hint.x);
@@ -1578,13 +1691,13 @@ function mergeQwenResults(payload) {
 
     if (existing) {
       used.add(existing.id);
-      existing.value = sanitize(annotation.value) || existing.value;
-      existing.tolerance = sanitize(annotation.tolerance);
-      existing.sourceText = sanitize(annotation.source_text) || existing.sourceText || existing.value;
+      existing.value = parsed.value || existing.value;
+      existing.tolerance = parsed.tolerance || existing.tolerance || "";
+      existing.sourceText = parsed.sourceText || existing.sourceText || existing.value;
       existing.note = sanitize(annotation.note) || existing.note;
       existing.confidence = clamp(Number(annotation.confidence || existing.confidence || 0.9), 0, 1);
       existing.reviewSource = "qwen-3.6-review";
-      existing.standardError = sanitize(annotation.tolerance || annotation.standard_error || "");
+      existing.standardError = parsed.standardError || existing.standardError || "";
       if (anchorX !== null && anchorY !== null && !existing.manual) {
         existing.anchorX = anchorX;
         existing.anchorY = anchorY;
@@ -1597,9 +1710,9 @@ function mergeQwenResults(payload) {
     state.annotations.push({
       id: `${Date.now()}-qwen-${Math.random().toString(36).slice(2, 7)}`,
       label: sanitize(annotation.label) || `B${state.annotations.length + 1}`,
-      value: sanitize(annotation.value) || "",
-      tolerance: sanitize(annotation.tolerance),
-      sourceText: sanitize(annotation.source_text) || sanitize(annotation.value),
+      value: parsed.value || "",
+      tolerance: parsed.tolerance,
+      sourceText: parsed.sourceText || parsed.value,
       note: sanitize(annotation.note),
       confidence: clamp(Number(annotation.confidence || 0.9), 0, 1),
       page: state.currentPage,
@@ -1610,45 +1723,70 @@ function mergeQwenResults(payload) {
       box: null,
       manual: false,
       reviewSource: "qwen-3.6-review",
-      standardError: sanitize(annotation.tolerance || annotation.standard_error || "")
+      standardError: parsed.standardError
     });
   });
 
 }
 
-function qwenSystemPrompt(passMode) {
+function defaultQwenSystemPrompt(passMode) {
   if (passMode === "first-pass") {
     return [
-      "你是一个高可靠性的机械图纸尺寸提取模型。",
+      "你是 qwen3.6-plus 上运行的高可靠性机械图纸尺寸提取模型。",
       "只能返回合法 JSON。",
-      "首轮任务：直接从图纸本身生成尽可能高质量的初始气泡集合。",
-      "请先系统地检查零件真实视图，再考虑其他区域。",
-      "优先识别那些通过尺寸线、引出线、半径标注、直径标注、角度圆弧、GD&T 框以及局部公差，明确附着在可见几何上的尺寸。",
+      "首轮任务：直接从原始图纸中生成初始气泡集合。",
+      "首轮优先级：1. 数值与公差不要串位；2. anchor_hint 优先贴近对应数值文字本身，且不能落到附近另一个尺寸数字上；3. 在保证前两项的前提下尽量提高覆盖率。",
+      "必须逐视图检查：主视图、次级视图、局部视图、圆孔区域、下方视图、右侧视图都要单独复查。",
+      "一个有效标注必须明确附着在尺寸线、引出线、角度弧线、半径/直径标注或几何相关公差信息上。",
+      "如果一个区域已经识别出一个尺寸，应继续检查该区域相邻的链式尺寸、并列尺寸、角度、半径、直径和小尺寸，不要只抓一个样本就停止。",
+      "数字识别要谨慎，优先保证准确率：仔细区分 0/6/8/9、1/7、3/8、5/6、O/0、I/1、小数点、R、Φ、°、括号值、上下偏差和 ± 符号。",
+      "绝对不要把来自两个不同位置、不同箭头、不同尺寸线、不同引出线、不同框的数字拼成一个标注。",
+      "只有在确认主值、公差、上下偏差或标准误差属于同一个尺寸调用时，才允许把它们填入同一 annotation。",
+      "如果不能确认公差或 ± 值属于同一个调用，宁可只返回主尺寸值，也不要强行合并。",
+      "anchor_hint 的首选目标，是对应数值文字或数值文字组本身的位置，而不是箭头尖端或尺寸线中点。",
+      "如果主尺寸值与公差、上下偏差或标准误差属于同一个文字组，anchor_hint 应优先落在这组文字的中心附近。",
+      "如果该标注的主要识别依据是数值文字，anchor_hint 应贴近数值文字，不必强行移到箭头尖端。",
+      "只有当数值文字极不清晰、被遮挡或无法稳定定位时，才退而求其次使用对应箭头或尺寸线附近位置。",
+      "若相邻有两个或多个尺寸数字，例如上方一个、下方一个、左边一个、右边一个，anchor_hint 必须只选择与当前 value 完全对应的那个数字文字，不能因为距离更近就吸附到其他数字上。",
+      "例如 value 是 20.0 时，anchor_hint 必须落在 20.0 文字附近，不能落在旁边的 10.0、119.8 或其他数字附近。",
+      "例如 value 是 10.0 时，anchor_hint 必须落在 10.0 文字附近，不能落在下方 20.0 文字附近。",
       "必须严格忽略标题栏、修订表、备注段落、标准引用、公差表、公司信息、比例标签以及与零件几何无关的图纸文本。",
-      "如果文本含糊不清，就跳过，不要臆造。",
+      "如果文本含糊不清、几何关系不明确或怀疑发生跨位置拼接，就跳过，不要臆造。",
       "不要输出填充值、重复锚点或占位尺寸。"
     ].join(" ");
   }
   return [
-    "你是一个谨慎的机械图纸 OCR 复核模型。",
+    "你是 qwen3.6-plus 上运行的谨慎机械图纸 OCR 复核模型。",
     "只能返回合法 JSON。",
-    "第二轮任务：综合原始图纸、生成的气泡布局图以及叠加标注图，进行复核与补全。",
+    "第二轮任务：综合原始图纸、生成的气泡布局图、叠加标注图和当前已编辑气泡，做复核与补全。",
     "把用户手动调整过的锚点和气泡视为强纠偏信号。",
-    "优先保留人工意图，补全遗漏的几何附着尺寸，并提升公差提取质量，但不要漂移到图纸元数据区域。"
+    "第二轮优先级仍然是：1. 不要把不同位置的数字和公差拼在一起；2. anchor_hint 优先贴近对应 value 的数值文字，且不能落到邻近其他数字上；3. 再补充遗漏项。",
+    "如果当前锚点偏离对应 value 的数值文字太远，而图中该数值文字本身清晰可见，应优先把锚点拉回该数值文字附近。",
+    "如果用户已经把锚点调整到数值文字附近，应把这种修正当作正确示范，不要再强行拉回箭头或尺寸线。",
+    "如果用户补加了新的锚点，说明首轮遗漏了这些真实尺寸；第二轮应优先围绕这些区域补全。",
+    "如果不能确认主值与公差属于同一个调用，宁可分开处理或只保留主值，也不要强行合并。",
+    "优先保留人工意图，补全遗漏的几何附着尺寸，并提升准确率，但不要漂移到图纸元数据区域。"
   ].join(" ");
 }
 
-function buildQwenPrompt(passMode = "review-pass") {
+function qwenSystemPrompt(passMode) {
+  const customPrompt = passMode === "first-pass"
+    ? els.qwenFirstSystemPrompt.value.trim()
+    : els.qwenReviewSystemPrompt.value.trim();
+  return customPrompt || defaultQwenSystemPrompt(passMode);
+}
+
+function defaultBuildQwenPrompt(passMode = "review-pass") {
   const isFirstPass = passMode === "first-pass";
   return [
     "只能返回 JSON。",
     isFirstPass
-      ? "第一轮：直接从原始图纸中生成初始气泡集合。"
+      ? "第一轮：直接从原始图纸中生成初始气泡集合。先输出高把握结果，再尽量补充明显遗漏项。"
       : "第二轮：结合原始图纸、生成的气泡布局图、叠加标注图以及当前已编辑气泡，一起完成复核。",
     "气泡只用于零件视图中与几何直接相关的尺寸。",
     "绝对不要为标题栏文本、修订表、备注段落、标准表、一般公差表或公司信息生成气泡。",
     isFirstPass
-      ? "先检查主视图，再检查次级视图和局部详图。尽量覆盖所有你能有把握识别的、明确附着在几何上的尺寸。"
+      ? "先检查主视图，再检查次级视图和局部详图。尽量覆盖所有你能有把握识别的、明确附着在几何上的尺寸。即使还不能一次覆盖全部，也要先返回最明显的一批有效尺寸。"
       : "尽量保留已有的人工编辑气泡，只补充那些明显缺失且明确附着在几何上的尺寸。",
     isFirstPass
       ? "第一轮不要依赖任何现有气泡提示，必须直接从图纸几何和尺寸标注中读取。"
@@ -1656,36 +1794,111 @@ function buildQwenPrompt(passMode = "review-pass") {
     isFirstPass
       ? "请按从左到右、从上到下的顺序检查图纸，但只输出那些在物理上与零件几何相连的尺寸。"
       : "请仔细比对三张输入图：原始图纸体现真实源文本，气泡布局图体现气泡意图，叠加标注图体现气泡与来源的连接关系。",
+    isFirstPass
+      ? "首轮必须覆盖所有主要视图与局部区域，不要只停留在主视图的一部分。"
+      : "第二轮应重点检查首轮常见漏检区域：次级视图、小尺寸、盒内尺寸、短竖向尺寸、直径半径标注、靠近 GD&T 框的尺寸。",
+    "在输出前，必须做一次漏检复查：检查是否遗漏了明显的链式尺寸、上下并列尺寸、局部角度尺寸、半径标注、直径标注和同一局部视图中相邻的多个尺寸调用。",
+    "对于同一局部里靠得很近的多个尺寸，不要因为文本重叠就只输出一个；应尽量分别识别，并分别给出属于自己的锚点。",
     "一个有效标注必须附着在尺寸线、引出线、半径、直径、角度或零件几何附近的公差信息上。",
-    "anchor_hint 必须指向尺寸文本本身。",
+    isFirstPass
+      ? "如果能稳定识别出 5 到 20 个明显尺寸，请优先把这些高质量结果返回；如果明显尺寸远多于 20 个，也应继续补抓，而不要因为还没覆盖完全部尺寸而返回空数组。"
+      : "如果人工已经指出某些区域有遗漏，第二轮应优先把这些区域补全，而不是只维持原样。",
+    "数字识别必须尽量规范化：value 中保留正确的主尺寸值与符号；source_text 保留图上原始文本；不要把清晰数字读错。",
+    "对于直径值、半径值、小数值和短尺寸，宁可多做一次局部放大式视觉检查，也不要因为字符较小或靠近其他图元就漏掉。",
+    "如果图上同时出现主尺寸值、公差、上下偏差或标准误差，并且它们明确属于同一个尺寸调用，请分别填写 value、tolerance、standard_error；如果不能确认属于同一个调用，就不要强行合并。",
+    "不要因为某个主尺寸值附近恰好存在 ± 符号或上下偏差文字，就默认它们属于同一个标注；必须确认它们共享同一尺寸线、同一引出线或同一箭头关系。",
+    "anchor_hint 应优先表示该标注对应的数值文字位置，而不是几何附着点。",
+    "anchor_hint 必须与 value 一一对应：如果 value 是某个具体数字，锚点就必须贴近那个数字文字本身，而不是附近其他数字。",
+    "如果主尺寸值与公差、上下偏差或标准误差属于同一个文字组，anchor_hint 应尽量落在这组文字中心附近。",
+    "如果只有主尺寸值清晰可见，anchor_hint 就贴近主尺寸值文字。",
+    "如果数值文字清晰可见，不要把 anchor_hint 强行移到箭头尖端、尺寸线中点或角度弧线中部。",
+    "对于角度标注，若角度数字文字清晰，anchor_hint 应优先落在角度数字附近，而不是角度弧线中部。",
+    "对于线性尺寸，若尺寸数字文字清晰，anchor_hint 应优先落在与当前 value 对应的尺寸数字附近，而不是附近其他数字，也不是线性尺寸线中点。",
+    "对于半径、直径或单箭头引出标注，若 R 值、Φ 值或对应公差文字清晰，anchor_hint 应优先落在这些文字附近。",
+    "把文字识别出来是为了填 value、tolerance 和 source_text；确定 anchor_hint 时应优先以对应数值文字位置为准。",
+    "如果某个值明显属于右侧圆孔区域、下方细长视图或左上角密集角度区域，anchor_hint 也必须留在那个局部文字附近，不要错误漂移到主视图中央。",
+    "如果 10.0 和 20.0、或其他相邻数字同时出现，必须根据 value 精确选择对应那一个，不能锚在相邻数字上。",
+    "如果用户在第二轮前手动新增了多个锚点，说明这些位置是首轮漏掉但人工确认存在的真实尺寸；第二轮应优先围绕这些区域补全结果。",
     "不要编造类似重复 1.0 这样的占位值。",
     "不要让很多标注重复使用同一个 anchor_hint。",
     "如果一个值中包含公差，请拆分为 value 和 tolerance。",
+    "note 字段必须使用简体中文，简短描述该尺寸的位置、视图或识别判断依据。",
     "不要把所有标签都重命名为 A。应保留或分配稳定的气泡标签，例如 B1、B2、B3。",
+    "view_name 建议使用简体中文，例如“主视图”、“局部视图”、“右端圆孔视图”。",
     "输出格式：",
     JSON.stringify({
       annotations: [
         {
           label: "B1",
-          value: "22.5",
-          tolerance: "±0.1",
-          source_text: "22.5 ±0.1",
-          note: "vertical dimension near hole",
+          value: "21.4",
+          tolerance: "±0.2",
+          standard_error: "",
+          source_text: "21.4 ±0.2",
+          note: "孔位附近的竖向尺寸",
           confidence: 0.95,
           anchor_hint: { x: 0.5, y: 0.2 },
           region_type: "geometry_dimension",
           is_attached_to_part_geometry: true,
-          view_name: "main view"
+          view_name: "主视图"
+        },
+        {
+          label: "B2",
+          value: "114.8°",
+          tolerance: "",
+          standard_error: "",
+          source_text: "(114.8°)",
+          note: "圆弧角度尺寸，锚点优先贴近角度文字本身",
+          confidence: 0.93,
+          anchor_hint: { x: 0.42, y: 0.58 },
+          region_type: "geometry_dimension",
+          is_attached_to_part_geometry: true,
+          view_name: "主视图"
+        },
+        {
+          label: "B3",
+          value: "R9.6",
+          tolerance: "+0.3/-0.1",
+          standard_error: "",
+          source_text: "R9.6 +0.3 -0.1",
+          note: "单箭头半径标注，锚点优先贴近 R 值与公差文字",
+          confidence: 0.94,
+          anchor_hint: { x: 0.31, y: 0.63 },
+          region_type: "geometry_dimension",
+          is_attached_to_part_geometry: true,
+          view_name: "主视图"
+        },
+        {
+          label: "B4",
+          value: "18.0",
+          tolerance: "",
+          standard_error: "",
+          source_text: "18.0",
+          note: "双箭头线性尺寸，锚点优先贴近尺寸数字文字",
+          confidence: 0.92,
+          anchor_hint: { x: 0.54, y: 0.42 },
+          region_type: "geometry_dimension",
+          is_attached_to_part_geometry: true,
+          view_name: "主视图"
         }
       ]
     }, null, 2),
     "允许的 region_type 取值为：geometry_dimension、geometry_tolerance、geometry_gdt、title_block、revision_table、notes_block、tolerance_table、standards_block、other。",
     "annotations 中只允许出现 geometry_dimension、geometry_tolerance 和 geometry_gdt。",
     "如果不确定，就不要把该项作为气泡输出。",
+    isFirstPass
+      ? "如果图中存在至少一个明确可见的有效尺寸，就不要返回空 annotations。"
+      : "如果第二轮发现首轮结果明显漏检，应直接补充，不要因为局部不确定而整批清空。",
     "confidence 必须是 0 到 1 之间的数值。",
     "坐标必须归一化到 0 到 1。",
     "绝对不要把气泡锚定在标题栏、备注区、修订表或公差表中。"
   ].join("\n");
+}
+
+function buildQwenPrompt(passMode = "review-pass") {
+  const customPrompt = passMode === "first-pass"
+    ? els.qwenFirstUserPrompt.value.trim()
+    : els.qwenReviewUserPrompt.value.trim();
+  return customPrompt || defaultBuildQwenPrompt(passMode);
 }
 
 function normalizeIncomingAnnotations(items) {
@@ -1733,6 +1946,7 @@ function looksLikeLowQualityQwenResult(items) {
 
 async function runQwenPass(passMode = "review-pass") {
   const settings = getQwenSettings();
+  const modelLabel = settings.model || currentModelLabel();
   const isFirstPass = passMode === "first-pass";
   if (!hasSavedQwenSettings()) {
     setStatus("请先保存 API 设置，再运行 Qwen。");
@@ -1748,11 +1962,11 @@ async function runQwenPass(passMode = "review-pass") {
     if (isFirstPass) {
       clearAnnotations();
       clearSheetAnalysis();
-      setStatus("正在把当前页面发送给 Qwen，执行首轮几何尺寸提取。");
-      setProgress("正在准备 Qwen 首轮识别", 10);
+      setStatus(`正在使用 ${modelLabel} 处理当前页面，执行首轮几何尺寸提取。`);
+      setProgress(`正在准备 ${modelLabel} 首轮识别`, 10);
     } else {
-      setStatus("正在把当前页面和现有气泡发送给 Qwen，执行第二轮复核。");
-      setProgress("正在准备 Qwen 复核", 10);
+      setStatus(`正在使用 ${modelLabel} 处理当前页面和现有气泡，执行第二轮复核。`);
+      setProgress(`正在准备 ${modelLabel} 复核`, 10);
     }
 
     const screenshotBundle = captureScreenshotBundle();
@@ -1802,6 +2016,7 @@ async function runQwenPass(passMode = "review-pass") {
       body: JSON.stringify({
         model: settings.model,
         temperature: 0,
+        enable_thinking: false,
         response_format: { type: "json_object" },
         messages: [
           {
@@ -1821,7 +2036,10 @@ async function runQwenPass(passMode = "review-pass") {
       throw new Error(`Qwen 请求失败：${response.status} ${errorText}`);
     }
 
-    setProgress(isFirstPass ? "正在解析首轮结果" : "正在解析 Qwen 返回", 72);
+    setProgress(
+      isFirstPass ? `正在解析 ${modelLabel} 首轮结果` : `正在解析 ${modelLabel} 返回`,
+      72
+    );
     const data = await response.json();
     const responseContent = data?.choices?.[0]?.message?.content;
     const text = Array.isArray(responseContent)
@@ -1830,21 +2048,23 @@ async function runQwenPass(passMode = "review-pass") {
     const payload = extractJsonObject(text);
     payload.annotations = normalizeIncomingAnnotations(payload.annotations);
     if (looksLikeLowQualityQwenResult(payload.annotations)) {
-      throw new Error("模型返回了低质量的重复标注；请确认当前模型为 qwen3-vl-plus 后重试");
+      throw new Error("模型返回了低质量的重复标注；请优先确认当前模型为 qwen3.6-plus，必要时再切换其他视觉模型重试");
     }
     mergeQwenResults(payload);
     renumberBubbles();
     state.scanSnapshot = state.annotations.map((item) => structuredClone(item));
-    setProgress(isFirstPass ? "Qwen 首轮识别完成" : "Qwen 复核完成", 100);
+    setProgress(isFirstPass ? `${modelLabel} 首轮识别完成` : `${modelLabel} 复核完成`, 100);
     setStatus(
       isFirstPass
-        ? "Qwen 首轮识别已完成。下一步请检查初始气泡，手动调整不满意的地方，然后再次运行 Qwen。"
-        : "Qwen 复核已完成。系统已尽量保留现有气泡，补充遗漏项，并更新图纸级公差或标准信息。你可以继续修正并再次复跑。"
+        ? `${modelLabel} 首轮识别已完成。下一步请检查初始气泡，手动调整不满意的地方，然后再次运行 Qwen。`
+        : `${modelLabel} 复核已完成。系统已尽量保留现有气泡，补充遗漏项，并更新图纸级公差或标准信息。你可以继续修正并再次复跑。`
     );
   } catch (error) {
     console.error(error);
-    setStatus(`${isFirstPass ? "Qwen 首轮识别" : "Qwen 复核"}失败：${error.message}`);
-    setProgress("Qwen 失败", 0);
+    setStatus(
+      `${modelLabel}${isFirstPass ? " 首轮识别" : " 复核"}失败：${error.message}。请检查 API 密钥、模型名称、基础 URL 和网络连接；确认无误后，可以再次点击按钮重试。`
+    );
+    setProgress(`${modelLabel} 运行失败，可重新尝试`, 0);
   } finally {
     setBusy(false);
   }
@@ -1985,6 +2205,10 @@ els.exportCsvBtn.addEventListener("click", exportCsv);
 els.exportXlsxBtn.addEventListener("click", exportXlsx);
 els.runQwenBtn.addEventListener("click", runQwenReview);
 els.saveQwenBtn.addEventListener("click", saveQwenSettings);
+els.resetPromptsBtn.addEventListener("click", () => {
+  fillPromptEditorsFromDefaults();
+  setStatus("已恢复默认提示词。若要用于后续测试，请点击“保存 API 设置”。");
+});
 
 els.importJsonInput.addEventListener("change", async (event) => {
   const file = event.target.files[0];

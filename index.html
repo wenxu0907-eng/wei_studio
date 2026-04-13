@@ -9,7 +9,7 @@
 <body>
   <div class="access-gate" id="access-gate">
     <div class="access-card">
-      <div class="eyebrow">Private Access</div>
+      <div class="eyebrow">私密访问</div>
       <h1>请输入访问码</h1>
       <p class="lead">只有拿到你分享访问码的人才能打开这个演示页面。输入正确访问码后，用户仍需使用自己的 Qwen API 密钥。</p>
       <label class="field">
@@ -24,6 +24,17 @@
   </div>
 
   <div class="app-shell" id="app-shell" hidden>
+    <div class="busy-overlay" id="busy-overlay" hidden>
+      <div class="busy-card" role="status" aria-live="polite" aria-atomic="true">
+        <div class="busy-spinner" aria-hidden="true"></div>
+        <div class="busy-copy">
+          <div class="busy-eyebrow">Qwen 正在处理中</div>
+          <h2 id="busy-title">正在准备请求</h2>
+          <p id="busy-detail">模型响应通常需要一点时间，请不要关闭页面。</p>
+        </div>
+      </div>
+    </div>
+
     <aside class="sidebar">
       <div class="brand-block">
         <div class="eyebrow">图纸智能识别</div>
@@ -69,7 +80,7 @@
           </label>
           <label class="field">
             <span>模型</span>
-            <input id="qwen-model" value="qwen3-vl-plus" />
+            <input id="qwen-model" value="qwen3.6-plus" />
           </label>
           <label class="field">
             <span>基础 URL</span>
@@ -77,14 +88,43 @@
           </label>
           <label class="field">
             <span>请求头（可选 JSON）</span>
-            <input id="qwen-extra-headers" placeholder='{"HTTP-Referer":"...","X-Title":"..."}' />
+            <input id="qwen-extra-headers" placeholder='{"HTTP-Referer":"你的站点","X-Title":"项目名称"}' />
           </label>
         </div>
         <div class="button-row">
           <button class="btn btn-ghost" id="save-qwen-btn" type="button">保存 API 设置</button>
         </div>
         <p class="lead">先填写并保存 Qwen API 设置。配置完成后，再加载示例图纸或上传客户图纸，开始首轮识别。</p>
-        <p class="lead">获取阿里云 Qwen API Key 的最短路径：1. 注册并登录阿里云 Model Studio；2. 如页面提示，先开通服务以领取新用户免费额度；3. 进入 API Key 页面创建 Key，建议选择默认工作空间。官方文档：<a href="https://www.alibabacloud.com/help/en/model-studio/get-api-key" target="_blank" rel="noreferrer">Get an API key</a>，快速开始：<a href="https://www.alibabacloud.com/help/en/model-studio/getting-started/quick-start/" target="_blank" rel="noreferrer">Make your first API call to Qwen</a>。</p>
+        <p class="lead">获取阿里云 Qwen API 密钥的最短路径：1. 注册并登录阿里云 Model Studio；2. 如页面提示，先开通服务以领取新用户免费额度；3. 进入 API Key 页面创建密钥，建议选择默认工作空间。官方文档：<a href="https://www.alibabacloud.com/help/zh/model-studio/get-api-key" target="_blank" rel="noreferrer">获取 API 密钥</a>，快速开始：<a href="https://www.alibabacloud.com/help/zh/model-studio/first-api-call-to-qwen" target="_blank" rel="noreferrer">调用 Qwen 模型</a>。</p>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-head">
+          <h2>1.1 提示词调试</h2>
+          <span class="panel-meta">可直接修改</span>
+        </div>
+        <div class="controls-grid">
+          <label class="field">
+            <span>首轮系统提示词</span>
+            <textarea id="qwen-first-system-prompt"></textarea>
+          </label>
+          <label class="field">
+            <span>首轮用户提示词</span>
+            <textarea id="qwen-first-user-prompt"></textarea>
+          </label>
+          <label class="field">
+            <span>二轮系统提示词</span>
+            <textarea id="qwen-review-system-prompt"></textarea>
+          </label>
+          <label class="field">
+            <span>二轮用户提示词</span>
+            <textarea id="qwen-review-user-prompt"></textarea>
+          </label>
+        </div>
+        <div class="button-row">
+          <button class="btn btn-ghost" id="reset-prompts-btn" type="button">恢复默认提示词</button>
+        </div>
+        <p class="lead">这里的四个提示词会直接参与请求。你可以修改后点击上方“保存 API 设置”，然后立即运行首轮识别或二轮复跑来测试效果。</p>
       </section>
 
       <section class="panel-card">
@@ -238,7 +278,7 @@
                 </label>
                 <label class="field">
                   <span>尺寸</span>
-                  <input id="bubble-value" placeholder="2450 mm" />
+                  <input id="bubble-value" placeholder="例如 2450 毫米" />
                 </label>
                 <label class="field">
                   <span>备注</span>
