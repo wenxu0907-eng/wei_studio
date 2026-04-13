@@ -135,10 +135,29 @@ const ctx = els.canvas.getContext("2d");
 
 async function sha256Hex(value) {
   const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((item) => item.toString(16).padStart(2, "0"))
-    .join("");
+  if (crypto.subtle) {
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest))
+      .map((item) => item.toString(16).padStart(2, "0"))
+      .join("");
+  }
+  // Fallback for insecure contexts (plain HTTP) where crypto.subtle is unavailable
+  let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+  const k=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  const len=bytes.length,bitLen=len*8;
+  const padded=new Uint8Array(((len+9+63)&~63));
+  padded.set(bytes);padded[len]=0x80;
+  const dv=new DataView(padded.buffer);
+  dv.setUint32(padded.length-4,bitLen,false);
+  for(let off=0;off<padded.length;off+=64){
+    const w=new Int32Array(64);
+    for(let i=0;i<16;i++)w[i]=dv.getInt32(off+i*4,false);
+    for(let i=16;i<64;i++){const s0=((w[i-15]>>>7|w[i-15]<<25)^(w[i-15]>>>18|w[i-15]<<14)^(w[i-15]>>>3)),s1=((w[i-2]>>>17|w[i-2]<<15)^(w[i-2]>>>19|w[i-2]<<13)^(w[i-2]>>>10));w[i]=(w[i-16]+s0+w[i-7]+s1)|0;}
+    let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+    for(let i=0;i<64;i++){const S1=((e>>>6|e<<26)^(e>>>11|e<<21)^(e>>>25|e<<7)),ch=(e&f)^(~e&g),t1=(h+S1+ch+k[i]+w[i])|0,S0=((a>>>2|a<<30)^(a>>>13|a<<19)^(a>>>22|a<<10)),maj=(a&b)^(a&c)^(b&c),t2=(S0+maj)|0;h=g;g=f;f=e;e=(d+t1)|0;d=c;c=b;b=a;a=(t1+t2)|0;}
+    h0=(h0+a)|0;h1=(h1+b)|0;h2=(h2+c)|0;h3=(h3+d)|0;h4=(h4+e)|0;h5=(h5+f)|0;h6=(h6+g)|0;h7=(h7+h)|0;
+  }
+  return [h0,h1,h2,h3,h4,h5,h6,h7].map(v=>(v>>>0).toString(16).padStart(8,"0")).join("");
 }
 
 function accessUnlocked() {
@@ -1736,12 +1755,29 @@ function defaultQwenSystemPrompt(passMode) {
       "只能返回合法 JSON。",
       "首轮任务：直接从原始图纸中生成初始气泡集合。",
       "首轮优先级：1. 数值与公差不要串位；2. anchor_hint 优先贴近对应数值文字本身，且不能落到附近另一个尺寸数字上；3. 在保证前两项的前提下尽量提高覆盖率。",
-      "必须逐视图检查：主视图、次级视图、局部视图、圆孔区域、下方视图、右侧视图都要单独复查。",
+      "必须逐视图检查：主视图、次级视图、局部视图、剖面视图、圆孔区域、下方视图、右侧视图都要单独复查。",
       "一个有效标注必须明确附着在尺寸线、引出线、角度弧线、半径/直径标注或几何相关公差信息上。",
       "如果一个区域已经识别出一个尺寸，应继续检查该区域相邻的链式尺寸、并列尺寸、角度、半径、直径和小尺寸，不要只抓一个样本就停止。",
-      "数字识别要谨慎，优先保证准确率：仔细区分 0/6/8/9、1/7、3/8、5/6、O/0、I/1、小数点、R、Φ、°、括号值、上下偏差和 ± 符号。",
+      "首轮要特别优先补齐容易漏掉的值：小尺寸、盒内尺寸、局部视图中的尺寸、靠近 GD&T 框或基准符号的尺寸、直径符号 Φ 附近的尺寸、短竖向尺寸、短横向尺寸、以及圆孔附近的尺寸。",
+      "如果某个局部已经识别到一个尺寸，说明该局部很可能还存在其他相邻尺寸；必须继续复查直到没有明显遗漏。",
+
+      "【螺纹标注】必须识别螺纹规格，例如 M13.18、M10×1.5、M8-6H 等。螺纹标注通常出现在孔或轴的引出线末端，value 应写为完整螺纹规格（如 'M13.18'），region_type 为 geometry_dimension。",
+      "【GD&T 特征控制框】必须识别几何公差框（矩形方框内含符号和数值），例如位置度 ⌖ 0.05、平面度 ⏥ 0.02、圆度 ○ 0.01 等。value 应写为公差值（如 '0.05'），source_text 应包含完整框内容（如 '⌖ Φ0.05 M A B'），region_type 为 geometry_gdt。如果框中包含基准引用（A、B、C），应在 note 中注明。",
+      "【复合尺寸】必须识别形如 22.0 × 6.1 的复合尺寸（宽×高、长×宽等），value 应保留完整写法（如 '22.0 × 6.1'），不要拆分成两个独立标注。",
+      "【上下偏差堆叠格式】当看到主值上方有一个小数字、下方有另一个小数字时（如 R11.5 上方 +0.3 下方 -0.1），这是上下偏差格式。tolerance 应写为 '+0.3/-0.1'，不要只取其中一个。source_text 应写为 'R11.5 +0.3 -0.1'。",
+      "【括号参考尺寸】括号中的尺寸（如 (114.8°)、(20.0)）是参考尺寸，仍然需要提取。value 不含括号，source_text 保留括号。在 note 中注明'参考尺寸'。",
+      "【配合公差代号】必须识别配合公差代号，如 h9、H7、f6、js6 等，通常紧跟在尺寸值后面。应将其写入 tolerance 字段（如 value='Φ13.18', tolerance='h9'）。",
+      "【表面粗糙度】如果尺寸标注附近有表面粗糙度符号（√ 形或三角形带数值），应作为单独标注提取，region_type 为 geometry_tolerance，value 为粗糙度值（如 'Ra 1.6'）。",
+      "【基准符号】基准标记（三角旗 + 字母，如 A、B、C）本身不需要单独提取为气泡，但如果基准符号旁边有附着的尺寸值，该尺寸不能遗漏。",
+      "【R 和 Φ 前缀】半径标注以 R 开头（如 R15.0、R239.0、R11.5），直径标注以 Φ 开头（如 Φ13.18、Φ3.0、Φ9.45）。value 必须保留 R 或 Φ 前缀，不要丢掉。",
+
+      "数字识别要谨慎，优先保证准确率：仔细区分 0/6/8/9、1/7、3/8、5/6、O/0、I/1、2/4、小数点、R、Φ、°、括号值、上下偏差和 ± 符号。",
+      "特别注意 2 和 4 的区分：在手写体或低分辨率区域，2 的弧线底笔容易被误读为 4 的尖角；如果上下文是 R 开头的半径值，应结合圆弧几何合理性判断（例如 R239 和 R439 差异极大，选择与图中圆弧曲率更匹配的值）。",
+      "特别注意角度值的精确读取：1 和 7 容易混淆，.1 和 .7 在小字号下极易误读；应结合角度弧线的张角大小做合理性校验。",
       "绝对不要把来自两个不同位置、不同箭头、不同尺寸线、不同引出线、不同框的数字拼成一个标注。",
-      "只有在确认主值、公差、上下偏差或标准误差属于同一个尺寸调用时，才允许把它们填入同一 annotation。",
+      "上下偏差（如 +0.3/-0.1）只能归属于与其物理上最近且共享同一尺寸线或引出线的主值。如果上下偏差文字紧贴在某个主值（如 R11.5）的右侧或上下方，就只能属于该主值，不能被吸附到附近另一个不同类型的标注（如角度值）上。",
+      "角度标注（°结尾）通常只有主值，很少带 +/-偏差；如果你准备给角度标注填写上下偏差，必须确认偏差文字确实紧贴角度数字本身，而不是来自附近的线性或半径标注。",
+      "只有在确认主值、公差、上下偏差或标准误差属于同一个尺寸调用时，才允许把它们填入同一 annotation。判断标准：它们必须在视觉上属于同一组文字，或共享同一条尺寸线/引出线。",
       "如果不能确认公差或 ± 值属于同一个调用，宁可只返回主尺寸值，也不要强行合并。",
       "anchor_hint 的首选目标，是对应数值文字或数值文字组本身的位置，而不是箭头尖端或尺寸线中点。",
       "如果主尺寸值与公差、上下偏差或标准误差属于同一个文字组，anchor_hint 应优先落在这组文字的中心附近。",
@@ -1799,12 +1835,16 @@ function defaultBuildQwenPrompt(passMode = "review-pass") {
       : "第二轮应重点检查首轮常见漏检区域：次级视图、小尺寸、盒内尺寸、短竖向尺寸、直径半径标注、靠近 GD&T 框的尺寸。",
     "在输出前，必须做一次漏检复查：检查是否遗漏了明显的链式尺寸、上下并列尺寸、局部角度尺寸、半径标注、直径标注和同一局部视图中相邻的多个尺寸调用。",
     "对于同一局部里靠得很近的多个尺寸，不要因为文本重叠就只输出一个；应尽量分别识别，并分别给出属于自己的锚点。",
+    "必须主动复查容易漏值的区域：左上角密集角度/斜向尺寸区域、中部线性尺寸区域、右侧圆孔和直径区域、下方细长视图、盒内竖向尺寸、以及靠近 GD&T 框和基准符号的数字。",
+    "如果一个值很小、很短、被框住、靠近符号、靠近圆孔、或与其他数字距离很近，也不能跳过；应尽量单独识别。",
     "一个有效标注必须附着在尺寸线、引出线、半径、直径、角度或零件几何附近的公差信息上。",
     isFirstPass
       ? "如果能稳定识别出 5 到 20 个明显尺寸，请优先把这些高质量结果返回；如果明显尺寸远多于 20 个，也应继续补抓，而不要因为还没覆盖完全部尺寸而返回空数组。"
       : "如果人工已经指出某些区域有遗漏，第二轮应优先把这些区域补全，而不是只维持原样。",
     "数字识别必须尽量规范化：value 中保留正确的主尺寸值与符号；source_text 保留图上原始文本；不要把清晰数字读错。",
     "对于直径值、半径值、小数值和短尺寸，宁可多做一次局部放大式视觉检查，也不要因为字符较小或靠近其他图元就漏掉。",
+    "对于盒内尺寸、局部视图中的尺寸、圆孔周围尺寸和靠近 GD&T/基准符号的尺寸，不能因为它们视觉上独立或位置偏边缘就忽略。",
+    "对于螺纹标注（M开头）、配合公差代号（h9/H7/f6等）、GD&T特征控制框（矩形框内的几何公差）、复合尺寸（如 22.0×6.1）、上下偏差堆叠格式，必须逐一检查，不能遗漏。",
     "如果图上同时出现主尺寸值、公差、上下偏差或标准误差，并且它们明确属于同一个尺寸调用，请分别填写 value、tolerance、standard_error；如果不能确认属于同一个调用，就不要强行合并。",
     "不要因为某个主尺寸值附近恰好存在 ± 符号或上下偏差文字，就默认它们属于同一个标注；必须确认它们共享同一尺寸线、同一引出线或同一箭头关系。",
     "anchor_hint 应优先表示该标注对应的数值文字位置，而不是几何附着点。",
@@ -1830,10 +1870,10 @@ function defaultBuildQwenPrompt(passMode = "review-pass") {
       annotations: [
         {
           label: "B1",
-          value: "21.4",
-          tolerance: "±0.2",
+          value: "45.3",
+          tolerance: "±0.15",
           standard_error: "",
-          source_text: "21.4 ±0.2",
+          source_text: "45.3 ±0.15",
           note: "孔位附近的竖向尺寸",
           confidence: 0.95,
           anchor_hint: { x: 0.5, y: 0.2 },
@@ -1843,11 +1883,11 @@ function defaultBuildQwenPrompt(passMode = "review-pass") {
         },
         {
           label: "B2",
-          value: "114.8°",
+          value: "73.5°",
           tolerance: "",
           standard_error: "",
-          source_text: "(114.8°)",
-          note: "圆弧角度尺寸，锚点优先贴近角度文字本身",
+          source_text: "(73.5°)",
+          note: "参考尺寸，圆弧角度",
           confidence: 0.93,
           anchor_hint: { x: 0.42, y: 0.58 },
           region_type: "geometry_dimension",
@@ -1856,27 +1896,53 @@ function defaultBuildQwenPrompt(passMode = "review-pass") {
         },
         {
           label: "B3",
-          value: "R9.6",
-          tolerance: "+0.3/-0.1",
+          value: "R7.2",
+          tolerance: "+0.2/-0.05",
           standard_error: "",
-          source_text: "R9.6 +0.3 -0.1",
-          note: "单箭头半径标注，锚点优先贴近 R 值与公差文字",
+          source_text: "R7.2 +0.2 -0.05",
+          note: "半径标注，上下偏差堆叠格式",
           confidence: 0.94,
           anchor_hint: { x: 0.31, y: 0.63 },
+          region_type: "geometry_dimension",
+          is_attached_to_part_geometry: true,
+          view_name: "局部视图"
+        },
+        {
+          label: "B4",
+          value: "Φ16.05",
+          tolerance: "H7",
+          standard_error: "",
+          source_text: "Φ16.05 H7",
+          note: "直径标注带配合公差代号",
+          confidence: 0.92,
+          anchor_hint: { x: 0.75, y: 0.15 },
           region_type: "geometry_dimension",
           is_attached_to_part_geometry: true,
           view_name: "主视图"
         },
         {
-          label: "B4",
-          value: "18.0",
+          label: "B5",
+          value: "30.0 × 4.5",
           tolerance: "",
           standard_error: "",
-          source_text: "18.0",
-          note: "双箭头线性尺寸，锚点优先贴近尺寸数字文字",
-          confidence: 0.92,
-          anchor_hint: { x: 0.54, y: 0.42 },
+          source_text: "30.0 × 4.5",
+          note: "复合尺寸，键槽宽×深",
+          confidence: 0.91,
+          anchor_hint: { x: 0.82, y: 0.38 },
           region_type: "geometry_dimension",
+          is_attached_to_part_geometry: true,
+          view_name: "右端圆孔视图"
+        },
+        {
+          label: "B6",
+          value: "0.08",
+          tolerance: "",
+          standard_error: "",
+          source_text: "⌖ Φ0.08 M A B",
+          note: "GD&T 位置度公差，基准 A、B",
+          confidence: 0.90,
+          anchor_hint: { x: 0.70, y: 0.18 },
+          region_type: "geometry_gdt",
           is_attached_to_part_geometry: true,
           view_name: "主视图"
         }
@@ -1901,8 +1967,45 @@ function buildQwenPrompt(passMode = "review-pass") {
   return customPrompt || defaultBuildQwenPrompt(passMode);
 }
 
-function normalizeIncomingAnnotations(items) {
+function postProcessAnnotations(items) {
   const source = Array.isArray(items) ? items : [];
+  return source.map((item) => {
+    const v = sanitize(item.value);
+    const tol = sanitize(item.tolerance);
+    const se = sanitize(item.standard_error);
+
+    // Rule 1: Angle values (ending with °) should not carry +/- deviations —
+    // these are almost always cross-referenced from a nearby linear/radius dim.
+    if (v.includes("°") && (tol.match(/^[+-]/) || se.match(/^[+-]/))) {
+      item.tolerance = "";
+      item.standard_error = "";
+      item.source_text = sanitize(item.source_text).replace(/\s*[+-]\d+[\d.]*\s*\/?\s*[+-]?\d*[\d.]*/g, "").trim();
+      item.note = (item.note || "") + " [自动修正：移除了可能误归属的偏差]";
+      item.confidence = Math.min(Number(item.confidence || 0), 0.7);
+    }
+
+    // Rule 2: If a tolerance looks like +X/-Y but is on a non-R, non-Φ, non-numeric value, strip it
+    if (tol.match(/^[+-]/) && !v.match(/^[R\u03a6\d]/)) {
+      item.tolerance = "";
+      item.note = (item.note || "") + " [自动修正：偏差不匹配值类型]";
+    }
+
+    // Rule 3: Flag suspiciously large R values — R400+ is rare, may be a 2→4 misread
+    const rMatch = v.match(/^R(\d+(\.\d+)?)/);
+    if (rMatch) {
+      const rVal = parseFloat(rMatch[1]);
+      if (rVal >= 400) {
+        item.confidence = Math.min(Number(item.confidence || 0), 0.6);
+        item.note = (item.note || "") + " [警告：R值偏大，请确认是否为2/4误读]";
+      }
+    }
+
+    return item;
+  });
+}
+
+function normalizeIncomingAnnotations(items) {
+  const source = postProcessAnnotations(Array.isArray(items) ? items : []);
   const deduped = new Map();
 
   source.forEach((item) => {
