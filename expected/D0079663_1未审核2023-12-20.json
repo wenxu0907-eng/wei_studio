@@ -1,0 +1,265 @@
+{
+  "source": "D0079663_1未审核2023-12-20.pdf",
+  "annotations": [
+    {
+      "label": "B1",
+      "value": "R34",
+      "tolerance": "",
+      "source_text": "(2X R34.)",
+      "note": "参考尺寸，顶部外圆弧半径，2处",
+      "region_type": "geometry_dimension",
+      "view_name": "主视图",
+      "anchor_hint": {
+        "x": 0.22,
+        "y": 0.14
+      }
+    },
+    {
+      "label": "B2",
+      "value": "R28",
+      "tolerance": "",
+      "source_text": "2X R28",
+      "note": "顶部内圆弧半径，2处",
+      "region_type": "geometry_dimension",
+      "view_name": "主视图",
+      "anchor_hint": {
+        "x": 0.12,
+        "y": 0.18
+      }
+    },
+    {
+      "label": "B3",
+      "value": "R22",
+      "tolerance": "",
+      "source_text": "(2X R22.)",
+      "note": "参考尺寸，顶部小圆弧半径，2处",
+      "region_type": "geometry_dimension",
+      "view_name": "主视图",
+      "anchor_hint": {
+        "x": 0.25,
+        "y": 0.18
+      }
+    },
+    {
+      "label": "B4",
+      "value": "22.7",
+      "tolerance": "",
+      "source_text": "22.7",
+      "note": "顶部右侧横向尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "主视图",
+      "anchor_hint": {
+        "x": 0.29,
+        "y": 0.18
+      }
+    },
+    {
+      "label": "B5",
+      "value": "194.6",
+      "tolerance": "+0.4",
+      "source_text": "194.6 +0.4",
+      "note": "顶部内宽尺寸，单向正偏差",
+      "region_type": "geometry_dimension",
+      "view_name": "主视图",
+      "anchor_hint": {
+        "x": 0.18,
+        "y": 0.28
+      }
+    },
+    {
+      "label": "B6",
+      "value": "156.3",
+      "tolerance": "",
+      "source_text": "156.3",
+      "note": "右侧竖向尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "主视图",
+      "anchor_hint": {
+        "x": 0.32,
+        "y": 0.3
+      }
+    },
+    {
+      "label": "B7",
+      "value": "375.5",
+      "tolerance": "",
+      "source_text": "375.5",
+      "note": "左侧整体高度尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "主视图",
+      "anchor_hint": {
+        "x": 0.05,
+        "y": 0.42
+      }
+    },
+    {
+      "label": "B8",
+      "value": "194.6",
+      "tolerance": "±0.4",
+      "source_text": "194.6 ±0.4",
+      "note": "底部内宽尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "主视图",
+      "anchor_hint": {
+        "x": 0.18,
+        "y": 0.62
+      }
+    },
+    {
+      "label": "B9",
+      "value": "220",
+      "tolerance": "",
+      "source_text": "220",
+      "note": "底部整体外宽尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "主视图",
+      "anchor_hint": {
+        "x": 0.18,
+        "y": 0.65
+      }
+    },
+    {
+      "label": "B10",
+      "value": "3",
+      "tolerance": "",
+      "source_text": "3",
+      "note": "右侧局部详图横向小尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "局部视图",
+      "anchor_hint": {
+        "x": 0.48,
+        "y": 0.48
+      }
+    },
+    {
+      "label": "B11",
+      "value": "2.7",
+      "tolerance": "",
+      "source_text": "2.7",
+      "note": "右侧局部详图竖向小尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "局部视图",
+      "anchor_hint": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    {
+      "label": "B12",
+      "value": "Φ12",
+      "tolerance": "",
+      "source_text": "Φ12",
+      "note": "右侧局部详图孔直径",
+      "region_type": "geometry_dimension",
+      "view_name": "局部视图",
+      "anchor_hint": {
+        "x": 0.51,
+        "y": 0.5
+      }
+    },
+    {
+      "label": "B13",
+      "value": "10.2",
+      "tolerance": "",
+      "source_text": "10.2",
+      "note": "右侧局部详图竖向尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "局部视图",
+      "anchor_hint": {
+        "x": 0.55,
+        "y": 0.46
+      }
+    },
+    {
+      "label": "B14",
+      "value": "Φ12.2",
+      "tolerance": "+0.2",
+      "source_text": "Φ12.2 +0.2",
+      "note": "右侧局部详图孔直径，单向正偏差",
+      "region_type": "geometry_dimension",
+      "view_name": "局部视图",
+      "anchor_hint": {
+        "x": 0.46,
+        "y": 0.52
+      }
+    },
+    {
+      "label": "B15",
+      "value": "26.1",
+      "tolerance": "±0.1",
+      "source_text": "26.1 ±0.1",
+      "note": "右侧局部详图底部左侧尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "局部视图",
+      "anchor_hint": {
+        "x": 0.45,
+        "y": 0.6
+      }
+    },
+    {
+      "label": "B16",
+      "value": "23.4",
+      "tolerance": "±0.1",
+      "source_text": "23.4 ±0.1",
+      "note": "右侧局部详图底部右侧尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "局部视图",
+      "anchor_hint": {
+        "x": 0.52,
+        "y": 0.6
+      }
+    },
+    {
+      "label": "B17",
+      "value": "25.1",
+      "tolerance": "±0.1",
+      "source_text": "25.1 ±0.1",
+      "note": "右侧局部详图底部总尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "局部视图",
+      "anchor_hint": {
+        "x": 0.48,
+        "y": 0.62
+      }
+    },
+    {
+      "label": "B18",
+      "value": "5",
+      "tolerance": "",
+      "source_text": "5",
+      "note": "剖面F-F顶部小尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "剖面F-F",
+      "anchor_hint": {
+        "x": 0.27,
+        "y": 0.74
+      }
+    },
+    {
+      "label": "B19",
+      "value": "R3.2",
+      "tolerance": "",
+      "source_text": "(1.8X R3.2.)",
+      "note": "参考尺寸，剖面圆角半径",
+      "region_type": "geometry_dimension",
+      "view_name": "剖面F-F",
+      "anchor_hint": {
+        "x": 0.28,
+        "y": 0.75
+      }
+    },
+    {
+      "label": "B20",
+      "value": "12.7",
+      "tolerance": "",
+      "source_text": "12.7",
+      "note": "剖面F-F高度尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "剖面F-F",
+      "anchor_hint": {
+        "x": 0.29,
+        "y": 0.78
+      }
+    }
+  ]
+}

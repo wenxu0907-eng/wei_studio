@@ -1,0 +1,125 @@
+{
+  "source": "9081-3-GJ-3.pdf",
+  "annotations": [
+    {
+      "label": "B1",
+      "value": "1011.7",
+      "tolerance": "±1.5",
+      "source_text": "1011.7±1.5",
+      "note": "总长度，水平尺寸",
+      "confidence": 0.96,
+      "anchor_hint": {
+        "x": 0.52,
+        "y": 0.49
+      },
+      "region_type": "geometry_dimension",
+      "is_attached_to_part_geometry": true,
+      "view_name": "主视图"
+    },
+    {
+      "label": "B2",
+      "value": "89.2",
+      "tolerance": "±0.5",
+      "source_text": "89.2±0.5",
+      "note": "左侧竖向尺寸，旋转90°文字",
+      "confidence": 0.95,
+      "anchor_hint": {
+        "x": 0.3,
+        "y": 0.3
+      },
+      "region_type": "geometry_dimension",
+      "is_attached_to_part_geometry": true,
+      "view_name": "主视图"
+    },
+    {
+      "label": "B3",
+      "value": "89.2",
+      "tolerance": "±0.5",
+      "source_text": "89.2±0.5",
+      "note": "右侧竖向尺寸，旋转90°文字，与左侧对称",
+      "confidence": 0.95,
+      "anchor_hint": {
+        "x": 0.76,
+        "y": 0.3
+      },
+      "region_type": "geometry_dimension",
+      "is_attached_to_part_geometry": true,
+      "view_name": "主视图"
+    },
+    {
+      "label": "B4",
+      "value": "20.0",
+      "tolerance": "±0.3",
+      "source_text": "20.0±0.3",
+      "note": "左端水平尺寸",
+      "confidence": 0.96,
+      "anchor_hint": {
+        "x": 0.14,
+        "y": 0.41
+      },
+      "region_type": "geometry_dimension",
+      "is_attached_to_part_geometry": true,
+      "view_name": "主视图"
+    },
+    {
+      "label": "B5",
+      "value": "20.0",
+      "tolerance": "±0.3",
+      "source_text": "20.0±0.3",
+      "note": "右端水平尺寸",
+      "confidence": 0.96,
+      "anchor_hint": {
+        "x": 0.88,
+        "y": 0.41
+      },
+      "region_type": "geometry_dimension",
+      "is_attached_to_part_geometry": true,
+      "view_name": "主视图"
+    },
+    {
+      "label": "B6",
+      "value": "Φ5.00",
+      "tolerance": null,
+      "source_text": "Φ5.00",
+      "note": "管材直径，竖向旋转90°文字",
+      "confidence": 0.93,
+      "anchor_hint": {
+        "x": 0.52,
+        "y": 0.28
+      },
+      "region_type": "geometry_dimension",
+      "is_attached_to_part_geometry": true,
+      "view_name": "主视图"
+    },
+    {
+      "label": "B7",
+      "value": "106.84",
+      "tolerance": null,
+      "source_text": "106.84",
+      "note": "左侧斜向尺寸，旋转文字",
+      "confidence": 0.88,
+      "anchor_hint": {
+        "x": 0.2,
+        "y": 0.62
+      },
+      "region_type": "geometry_dimension",
+      "is_attached_to_part_geometry": true,
+      "view_name": "俯视图"
+    },
+    {
+      "label": "B8",
+      "value": "106.97",
+      "tolerance": null,
+      "source_text": "106.97",
+      "note": "右侧斜向尺寸，旋转文字",
+      "confidence": 0.85,
+      "anchor_hint": {
+        "x": 0.88,
+        "y": 0.65
+      },
+      "region_type": "geometry_dimension",
+      "is_attached_to_part_geometry": true,
+      "view_name": "俯视图"
+    }
+  ]
+}

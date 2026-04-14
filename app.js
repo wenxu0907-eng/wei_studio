@@ -84,6 +84,9 @@ const els = {
   busyOverlay: document.getElementById("busy-overlay"),
   busyTitle: document.getElementById("busy-title"),
   busyDetail: document.getElementById("busy-detail"),
+  thinkingHistory: document.getElementById("thinking-history"),
+  thinkingPanel: document.getElementById("thinking-panel"),
+  clearThinkingBtn: document.getElementById("clear-thinking-btn"),
   bubbleLabel: document.getElementById("bubble-label"),
   bubbleValue: document.getElementById("bubble-value"),
   bubbleNote: document.getElementById("bubble-note"),
@@ -98,10 +101,12 @@ const els = {
   exportCsvBtn: document.getElementById("export-csv-btn"),
   exportXlsxBtn: document.getElementById("export-xlsx-btn"),
   qwenState: document.getElementById("qwen-state"),
+  modelPreset: document.getElementById("model-preset"),
   qwenApiKey: document.getElementById("qwen-api-key"),
   qwenModel: document.getElementById("qwen-model"),
   qwenBaseUrl: document.getElementById("qwen-base-url"),
   qwenExtraHeaders: document.getElementById("qwen-extra-headers"),
+  qwenMaxIterations: document.getElementById("qwen-max-iterations"),
   qwenFirstSystemPrompt: document.getElementById("qwen-first-system-prompt"),
   qwenFirstUserPrompt: document.getElementById("qwen-first-user-prompt"),
   qwenReviewSystemPrompt: document.getElementById("qwen-review-system-prompt"),
@@ -265,6 +270,82 @@ function markSaved() {
   updateControls();
 }
 
+let thinkingCounter = 0;
+
+function showThinking(thinkingText, label, screenshots) {
+  if (!els.thinkingHistory) return;
+  thinkingCounter++;
+  const tag = label || `第${thinkingCounter}轮`;
+  const details = document.createElement("details");
+  details.style.marginBottom = "4px";
+  if (thinkingCounter === 1) details.open = true;
+  const summary = document.createElement("summary");
+  summary.style.cssText = "cursor:pointer;font-size:12px;font-weight:600;padding:2px 0;";
+  summary.textContent = `${tag}`;
+
+  // Screenshots section
+  if (screenshots) {
+    const imgRow = document.createElement("div");
+    imgRow.style.cssText = "display:flex;gap:6px;margin:6px 0;flex-wrap:wrap;";
+    const labels = { original: "原始图纸", generated: "气泡布局", annotated: "叠加标注" };
+    for (const [key, src] of Object.entries(screenshots)) {
+      if (key === "page" || key === "capturedAt" || !src) continue;
+      const wrap = document.createElement("div");
+      wrap.style.cssText = "flex:1;min-width:120px;";
+      const caption = document.createElement("div");
+      caption.style.cssText = "font-size:10px;color:#666;margin-bottom:2px;";
+      caption.textContent = labels[key] || key;
+      const img = document.createElement("img");
+      img.src = src;
+      img.dataset.fullSrc = src;
+      img.style.cssText = "width:100%;border:1px solid #ddd;border-radius:3px;cursor:pointer;";
+      img.title = "点击查看大图";
+      img.addEventListener("click", function () {
+        const dataSrc = this.dataset.fullSrc;
+        let lightbox = document.getElementById("thinking-lightbox");
+        if (!lightbox) {
+          lightbox = document.createElement("div");
+          lightbox.id = "thinking-lightbox";
+          lightbox.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;cursor:zoom-out;";
+          lightbox.addEventListener("click", () => { lightbox.style.display = "none"; });
+          document.body.appendChild(lightbox);
+        }
+        lightbox.innerHTML = "";
+        const fullImg = document.createElement("img");
+        fullImg.src = dataSrc;
+        fullImg.style.cssText = "max-width:95vw;max-height:95vh;object-fit:contain;";
+        lightbox.appendChild(fullImg);
+        lightbox.style.display = "flex";
+      });
+      wrap.appendChild(caption);
+      wrap.appendChild(img);
+      imgRow.appendChild(wrap);
+    }
+    details.appendChild(summary);
+    details.appendChild(imgRow);
+  } else {
+    details.appendChild(summary);
+  }
+
+  // Thinking text section
+  if (thinkingText) {
+    const pre = document.createElement("pre");
+    pre.style.cssText = "max-height:180px;overflow-y:auto;font-size:11px;white-space:pre-wrap;word-break:break-all;margin:4px 0 0;padding:6px;background:rgba(0,0,0,0.05);border-radius:4px;";
+    pre.textContent = thinkingText;
+    details.appendChild(pre);
+  }
+
+  els.thinkingHistory.appendChild(details);
+  els.thinkingHistory.scrollTop = els.thinkingHistory.scrollHeight;
+  if (els.thinkingPanel) els.thinkingPanel.hidden = false;
+}
+
+function clearThinkingHistory() {
+  if (els.thinkingHistory) els.thinkingHistory.innerHTML = "";
+  if (els.thinkingPanel) els.thinkingPanel.hidden = true;
+  thinkingCounter = 0;
+}
+
 function setBusy(isBusy) {
   state.busy = isBusy;
   els.busyOverlay.hidden = !isBusy;
@@ -391,9 +472,10 @@ function normalizeDimension(text) {
 function getQwenSettings() {
   return {
     apiKey: sanitize(els.qwenApiKey.value),
-    model: sanitize(els.qwenModel.value) || "qwen3.6-plus",
+    model: sanitize(els.qwenModel.value) || "qwen3.6-plus-2026-04-02",
     baseUrl: sanitize(els.qwenBaseUrl.value).replace(/\/$/, "") || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
     extraHeadersRaw: els.qwenExtraHeaders.value.trim(),
+    maxIterations: parseInt(els.qwenMaxIterations.value, 10) || 2,
     firstSystemPrompt: els.qwenFirstSystemPrompt.value.trim(),
     firstUserPrompt: els.qwenFirstUserPrompt.value.trim(),
     reviewSystemPrompt: els.qwenReviewSystemPrompt.value.trim(),
@@ -459,16 +541,23 @@ function loadQwenSettings() {
   try {
     const raw = localStorage.getItem(QWEN_SETTINGS_KEY);
     if (!raw) {
-      els.qwenModel.value = "qwen3.6-plus";
+      els.qwenModel.value = "qwen3.6-plus-2026-04-02";
       els.qwenBaseUrl.value = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
       fillPromptEditorsFromDefaults();
       return;
     }
     const settings = JSON.parse(raw);
     els.qwenApiKey.value = settings.apiKey || "";
-    els.qwenModel.value = settings.model || "qwen3.6-plus";
+    els.qwenModel.value = settings.model || "qwen3.6-plus-2026-04-02";
     els.qwenBaseUrl.value = settings.baseUrl || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
+    // Sync preset selector
+    const baseUrl = els.qwenBaseUrl.value;
+    if (baseUrl.includes("dashscope")) els.modelPreset.value = "qwen";
+    else if (baseUrl.includes("bigmodel.cn")) els.modelPreset.value = "zhipu";
+    else if (baseUrl.includes("anthropic.com")) els.modelPreset.value = "anthropic";
+    else els.modelPreset.value = "custom";
     els.qwenExtraHeaders.value = settings.extraHeadersRaw || "";
+    els.qwenMaxIterations.value = settings.maxIterations || 3;
     els.qwenFirstSystemPrompt.value = settings.firstSystemPrompt || defaultQwenSystemPrompt("first-pass");
     els.qwenFirstUserPrompt.value = settings.firstUserPrompt || defaultBuildQwenPrompt("first-pass");
     els.qwenReviewSystemPrompt.value = settings.reviewSystemPrompt || defaultQwenSystemPrompt("review-pass");
@@ -862,11 +951,31 @@ function drawAnnotationGraphics(context, options = {}) {
   });
 }
 
+const QWEN_MAX_LONG_SIDE = 2800;
+
+function resizeCanvasIfNeeded(sourceCanvas, maxLongSide) {
+  const w = sourceCanvas.width;
+  const h = sourceCanvas.height;
+  const longSide = Math.max(w, h);
+  if (longSide <= maxLongSide) {
+    return sourceCanvas.toDataURL("image/png");
+  }
+  const scale = maxLongSide / longSide;
+  const newW = Math.round(w * scale);
+  const newH = Math.round(h * scale);
+  const resized = document.createElement("canvas");
+  resized.width = newW;
+  resized.height = newH;
+  const rCtx = resized.getContext("2d");
+  rCtx.drawImage(sourceCanvas, 0, 0, newW, newH);
+  return resized.toDataURL("image/png");
+}
+
 function captureScreenshotBundle() {
   if (!state.source || !state.canvasWidth || !state.canvasHeight) {
     return null;
   }
-  const original = els.canvas.toDataURL("image/png");
+  const original = resizeCanvasIfNeeded(els.canvas, QWEN_MAX_LONG_SIDE);
 
   const generatedCanvas = document.createElement("canvas");
   const generatedContext = generatedCanvas.getContext("2d");
@@ -887,8 +996,8 @@ function captureScreenshotBundle() {
   return {
     page: state.currentPage,
     original,
-    generated: generatedCanvas.toDataURL("image/png"),
-    annotated: annotatedCanvas.toDataURL("image/png"),
+    generated: resizeCanvasIfNeeded(generatedCanvas, QWEN_MAX_LONG_SIDE),
+    annotated: resizeCanvasIfNeeded(annotatedCanvas, QWEN_MAX_LONG_SIDE),
     capturedAt: new Date().toISOString()
   };
 }
@@ -1556,13 +1665,28 @@ function extractJsonObject(text) {
     throw new Error("模型返回内容为空");
   }
   const fenced = trimmed.match(/```json\s*([\s\S]*?)```/i);
-  const candidate = fenced ? fenced[1] : trimmed;
+  const candidate = (fenced ? fenced[1] : trimmed).trim();
+
+  // Try array first: model may return [...] instead of {annotations:[...]}
+  const firstBracket = candidate.indexOf("[");
   const firstBrace = candidate.indexOf("{");
-  const lastBrace = candidate.lastIndexOf("}");
-  if (firstBrace === -1 || lastBrace === -1) {
-    throw new Error("模型未返回 JSON");
+
+  let parsed;
+  if (firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)) {
+    // Looks like a bare array
+    const lastBracket = candidate.lastIndexOf("]");
+    if (lastBracket === -1) throw new Error("模型未返回 JSON");
+    parsed = JSON.parse(candidate.slice(firstBracket, lastBracket + 1));
+    if (Array.isArray(parsed)) {
+      return { annotations: parsed };
+    }
   }
-  return JSON.parse(candidate.slice(firstBrace, lastBrace + 1));
+
+  if (firstBrace === -1) throw new Error("模型未返回 JSON");
+  const lastBrace = candidate.lastIndexOf("}");
+  if (lastBrace === -1) throw new Error("模型未返回 JSON");
+  parsed = JSON.parse(candidate.slice(firstBrace, lastBrace + 1));
+  return parsed;
 }
 
 function bubbleSnapshotForPrompt() {
@@ -1750,36 +1874,18 @@ function mergeQwenResults(payload) {
 function defaultQwenSystemPrompt(passMode) {
   if (passMode === "first-pass") {
     return [
-      "你是 qwen3.6-plus 上运行的高可靠性机械图纸尺寸提取模型。只能返回合法 JSON。首轮任务：直接从原始图纸中生成初始气泡集合。",
-
-      // --- TOP PRIORITY: Anti-mixing ---
-      "【最高优先级：禁止跨位置混合】绝对不要把来自两个不同位置、不同尺寸线、不同引出线的数字或公差拼成一个标注。上下偏差（如 +0.3/-0.1）只能归属于与其物理上最近且共享同一尺寸线的主值。角度标注（°结尾）几乎不带 +/-偏差——如果你准备给角度填偏差，必须确认偏差文字紧贴角度数字本身。不确定就只返回主值，不要合并。",
-
-      // --- ANCHOR RULES (3 crisp rules) ---
-      "【锚点三原则】① anchor_hint = 数值文字的中心坐标，不是箭头尖端、尺寸线中点或弧线中部。② 相邻多个数字时，anchor_hint 必须精确对应 value 那个数字文字，不能吸附到邻居数字上。③ 同一文字组（主值+公差）取组中心；不同文字组绝对不合并锚点。",
-
-      // --- NUMBER ACCURACY ---
-      "【数值准确性】仔细区分 2/4（R开头时结合圆弧曲率判断）、1/7（角度末位时结合弧线张角判断）、0/6/8/9、3/8、5/6、O/0、I/1、小数点。R 和 Φ 前缀必须保留。",
-
-      // --- COVERAGE ---
-      "首轮优先级排序：1. 不混合不同位置的数字；2. anchor精确对应数值文字；3. 数值准确；4. 覆盖率。",
-      "必须逐视图检查：主视图、次级视图、局部视图、剖面视图、圆孔区域、下方视图、右侧视图。",
-      "如果一个区域已识别出一个尺寸，继续检查该区域相邻的链式尺寸、并列尺寸、角度、半径、直径和小尺寸。",
-      "优先补齐容易漏掉的值：小尺寸、盒内尺寸、局部视图尺寸、GD&T 框附近尺寸、Φ 附近尺寸、短竖向/横向尺寸、圆孔附近尺寸。",
-
-      // --- DIMENSION TYPE RULES ---
-      "【螺纹】M开头的螺纹规格必须提取，value 写完整规格。",
-      "【GD&T框】矩形框内的几何公差必须提取，value 写公差值，source_text 写完整框内容，region_type 为 geometry_gdt。",
-      "【复合尺寸】如 22.0 × 6.1，value 保留完整写法不拆分。",
-      "【上下偏差】主值上方+下方数字组成 tolerance（如 '+0.3/-0.1'），必须读取两个值。",
-      "【括号参考尺寸】括号内尺寸仍需提取，value 不含括号，note 注明'参考尺寸'。",
-      "【配合公差代号】h9/H7/f6 等写入 tolerance 字段。",
-      "【表面粗糙度】√形符号作为独立标注，region_type 为 geometry_tolerance。",
-
-      // --- EXCLUSIONS ---
-      "严格忽略标题栏、修订表、备注段落、公差表、公司信息和比例标签。",
-      "不确定就跳过，不要臆造。不要输出填充值、重复锚点或占位尺寸。"
-    ].join(" ");
+      "你是工程图纸标注提取模型。只返回合法 JSON。",
+      "",
+      "【规则】",
+      "- 只提取与零件几何直接相关的尺寸（尺寸线、引出线、半径、直径、角度）",
+      "- 忽略标题栏、修订表、备注、公差表、公司信息",
+      "- 每个标注包含：label (B1, B2, ...)、value、tolerance、source_text、note（简体中文）、region_type、view_name（简体中文）、anchor_hint（归一化0-1坐标，文字中心位置）",
+      "- region_type：geometry_dimension、geometry_gdt 或 geometry_tolerance",
+      "- 公差格式：±X.X 对称、+X/-Y 非对称、h9/H7 配合代号",
+      "- 保留 R 和 Φ 前缀",
+      "- 顺序：从左到右、从上到下",
+      "- 数值准确：区分 0↔9、3↔8、5↔6"
+    ].join("\n");
   }
   return [
     "你是 qwen3.6-plus 上运行的谨慎机械图纸 OCR 复核模型。",
@@ -1803,134 +1909,45 @@ function qwenSystemPrompt(passMode) {
 }
 
 function defaultBuildQwenPrompt(passMode = "review-pass") {
-  const isFirstPass = passMode === "first-pass";
+  if (passMode === "first-pass") {
+    return [
+      "从工程图纸中提取所有尺寸标注。只输出合法 JSON。",
+      "",
+      "每个标注包含：label (B1, B2, ...)、value、tolerance、source_text、note（简体中文）、",
+      "region_type (geometry_dimension/geometry_gdt/geometry_tolerance)、view_name（简体中文）、",
+      "anchor_hint（归一化0-1坐标，文字中心位置）、confidence (0-1)。",
+      "",
+      "输出格式：",
+      JSON.stringify({
+        annotations: [
+          { label: "B1", value: "45.3", tolerance: "±0.15", source_text: "45.3 ±0.15",
+            note: "竖向尺寸", confidence: 0.95, anchor_hint: { x: 0.5, y: 0.2 },
+            region_type: "geometry_dimension", is_attached_to_part_geometry: true, view_name: "主视图" }
+        ]
+      }, null, 2)
+    ].join("\n");
+  }
+
+  const taskLine = "复核轮：比对原始图纸与已有气泡，修正错误值，补充遗漏。保留 user_updated/manual 气泡。";
+  const reviewExtra = "\n比对三张图：原始图纸=源文本，气泡布局图=意图，叠加图=连接关系。";
+
   return [
-    "只能返回 JSON。",
-    isFirstPass
-      ? "第一轮：直接从原始图纸中生成初始气泡集合。先输出高把握结果，再尽量补充明显遗漏项。"
-      : "第二轮：结合原始图纸、生成的气泡布局图、叠加标注图以及当前已编辑气泡，一起完成复核。",
-    "气泡只用于零件视图中与几何直接相关的尺寸。",
-    "绝对不要为标题栏文本、修订表、备注段落、标准表、一般公差表或公司信息生成气泡。",
-    isFirstPass
-      ? "先检查主视图，再检查次级视图和局部详图。尽量覆盖所有你能有把握识别的、明确附着在几何上的尺寸。即使还不能一次覆盖全部，也要先返回最明显的一批有效尺寸。"
-      : "尽量保留已有的人工编辑气泡，只补充那些明显缺失且明确附着在几何上的尺寸。",
-    isFirstPass
-      ? "第一轮不要依赖任何现有气泡提示，必须直接从图纸几何和尺寸标注中读取。"
-      : "凡是标记为 user_updated=true 或 manual=true 的当前气泡，都应被视为强人工纠偏信号；即使文本尚未填完，也要把它们的锚点当作有意图的指导。",
-    isFirstPass
-      ? "请按从左到右、从上到下的顺序检查图纸，但只输出那些在物理上与零件几何相连的尺寸。"
-      : "请仔细比对三张输入图：原始图纸体现真实源文本，气泡布局图体现气泡意图，叠加标注图体现气泡与来源的连接关系。",
-    isFirstPass
-      ? "首轮必须覆盖所有主要视图与局部区域，不要只停留在主视图的一部分。"
-      : "第二轮应重点检查首轮常见漏检区域：次级视图、小尺寸、盒内尺寸、短竖向尺寸、直径半径标注、靠近 GD&T 框的尺寸。",
-    "在输出前，必须做一次漏检复查：检查是否遗漏了明显的链式尺寸、上下并列尺寸、局部角度尺寸、半径标注、直径标注和同一局部视图中相邻的多个尺寸调用。",
-    "对于同一局部里靠得很近的多个尺寸，不要因为文本重叠就只输出一个；应尽量分别识别，并分别给出属于自己的锚点。",
-    "必须主动复查容易漏值的区域：左上角密集角度/斜向尺寸区域、中部线性尺寸区域、右侧圆孔和直径区域、下方细长视图、盒内竖向尺寸、以及靠近 GD&T 框和基准符号的数字。",
-    "如果一个值很小、很短、被框住、靠近符号、靠近圆孔、或与其他数字距离很近，也不能跳过；应尽量单独识别。",
-    "一个有效标注必须附着在尺寸线、引出线、半径、直径、角度或零件几何附近的公差信息上。",
-    isFirstPass
-      ? "如果能稳定识别出 5 到 20 个明显尺寸，请优先把这些高质量结果返回；如果明显尺寸远多于 20 个，也应继续补抓，而不要因为还没覆盖完全部尺寸而返回空数组。"
-      : "如果人工已经指出某些区域有遗漏，第二轮应优先把这些区域补全，而不是只维持原样。",
-    "数字识别必须尽量规范化：value 中保留正确的主尺寸值与符号；source_text 保留图上原始文本；不要把清晰数字读错。",
-    "对于直径值、半径值、小数值和短尺寸，宁可多做一次局部放大式视觉检查，也不要因为字符较小或靠近其他图元就漏掉。",
-    "对于盒内尺寸、局部视图中的尺寸、圆孔周围尺寸和靠近 GD&T/基准符号的尺寸，不能因为它们视觉上独立或位置偏边缘就忽略。",
-    "对于螺纹标注（M开头）、配合公差代号（h9/H7/f6等）、GD&T特征控制框（矩形框内的几何公差）、复合尺寸（如 22.0×6.1）、上下偏差堆叠格式，必须逐一检查，不能遗漏。",
-    "公差/偏差只能归属于共享同一尺寸线/引出线的主值；不确定就只返回主值。",
-    "anchor_hint 规则见系统提示（数值文字中心、精确对应 value、不漂移到邻居）。",
-    "不要编造占位值、重复锚点。如果含公差，拆分为 value 和 tolerance。",
-    "note 用简体中文。标签用 B1、B2、B3 序列。view_name 用简体中文（如'主视图'、'局部视图'）。",
-    "输出格式：",
+    taskLine + reviewExtra,
+    "",
+    "输出前做漏检复查：链式尺寸、并列尺寸、角度、半径、直径、GD&T框、小尺寸。",
+    "note用简体中文。label用B1、B2序列。view_name用简体中文。confidence 0~1。坐标归一化0~1。",
+    "",
+    "输出格式(只含geometry_dimension/geometry_tolerance/geometry_gdt)：",
     JSON.stringify({
       annotations: [
-        {
-          label: "B1",
-          value: "45.3",
-          tolerance: "±0.15",
-          standard_error: "",
-          source_text: "45.3 ±0.15",
-          note: "孔位附近的竖向尺寸",
-          confidence: 0.95,
-          anchor_hint: { x: 0.5, y: 0.2 },
-          region_type: "geometry_dimension",
-          is_attached_to_part_geometry: true,
-          view_name: "主视图"
-        },
-        {
-          label: "B2",
-          value: "73.5°",
-          tolerance: "",
-          standard_error: "",
-          source_text: "(73.5°)",
-          note: "参考尺寸，圆弧角度",
-          confidence: 0.93,
-          anchor_hint: { x: 0.42, y: 0.58 },
-          region_type: "geometry_dimension",
-          is_attached_to_part_geometry: true,
-          view_name: "主视图"
-        },
-        {
-          label: "B3",
-          value: "R7.2",
-          tolerance: "+0.2/-0.05",
-          standard_error: "",
-          source_text: "R7.2 +0.2 -0.05",
-          note: "半径标注，上下偏差堆叠格式",
-          confidence: 0.94,
-          anchor_hint: { x: 0.31, y: 0.63 },
-          region_type: "geometry_dimension",
-          is_attached_to_part_geometry: true,
-          view_name: "局部视图"
-        },
-        {
-          label: "B4",
-          value: "Φ16.05",
-          tolerance: "H7",
-          standard_error: "",
-          source_text: "Φ16.05 H7",
-          note: "直径标注带配合公差代号",
-          confidence: 0.92,
-          anchor_hint: { x: 0.75, y: 0.15 },
-          region_type: "geometry_dimension",
-          is_attached_to_part_geometry: true,
-          view_name: "主视图"
-        },
-        {
-          label: "B5",
-          value: "30.0 × 4.5",
-          tolerance: "",
-          standard_error: "",
-          source_text: "30.0 × 4.5",
-          note: "复合尺寸，键槽宽×深",
-          confidence: 0.91,
-          anchor_hint: { x: 0.82, y: 0.38 },
-          region_type: "geometry_dimension",
-          is_attached_to_part_geometry: true,
-          view_name: "右端圆孔视图"
-        },
-        {
-          label: "B6",
-          value: "0.08",
-          tolerance: "",
-          standard_error: "",
-          source_text: "⌖ Φ0.08 M A B",
-          note: "GD&T 位置度公差，基准 A、B",
-          confidence: 0.90,
-          anchor_hint: { x: 0.70, y: 0.18 },
-          region_type: "geometry_gdt",
-          is_attached_to_part_geometry: true,
-          view_name: "主视图"
-        }
+        { label: "B1", value: "45.3", tolerance: "±0.15", source_text: "45.3 ±0.15",
+          note: "竖向尺寸", confidence: 0.95, anchor_hint: { x: 0.5, y: 0.2 },
+          region_type: "geometry_dimension", is_attached_to_part_geometry: true, view_name: "主视图" },
+        { label: "B2", value: "R7.2", tolerance: "+0.2/-0.05", source_text: "R7.2 +0.2 -0.05",
+          note: "半径，上下偏差", confidence: 0.94, anchor_hint: { x: 0.31, y: 0.63 },
+          region_type: "geometry_dimension", is_attached_to_part_geometry: true, view_name: "局部视图" }
       ]
-    }, null, 2),
-    "允许的 region_type 取值为：geometry_dimension、geometry_tolerance、geometry_gdt、title_block、revision_table、notes_block、tolerance_table、standards_block、other。",
-    "annotations 中只允许出现 geometry_dimension、geometry_tolerance 和 geometry_gdt。",
-    "如果不确定，就不要把该项作为气泡输出。",
-    isFirstPass
-      ? "如果图中存在至少一个明确可见的有效尺寸，就不要返回空 annotations。"
-      : "如果第二轮发现首轮结果明显漏检，应直接补充，不要因为局部不确定而整批清空。",
-    "confidence 必须是 0 到 1 之间的数值。",
-    "坐标必须归一化到 0 到 1。",
-    "绝对不要把气泡锚定在标题栏、备注区、修订表或公差表中。"
+    }, null, 2)
   ].join("\n");
 }
 
@@ -1943,7 +1960,35 @@ function buildQwenPrompt(passMode = "review-pass") {
 
 function postProcessAnnotations(items) {
   const source = Array.isArray(items) ? items : [];
+
+  // Normalize anchor → anchor_hint if model echoed back compressBubbleHints format
+  source.forEach((item) => {
+    if (!item.anchor_hint && item.anchor) {
+      item.anchor_hint = item.anchor;
+    }
+  });
+
   const hasDegreeSym = (s) => /[\u00B0\u00BA°]/.test(s);
+
+  // Pass 0.5: normalize tolerance format
+  source.forEach((item) => {
+    let t = sanitize(item.tolerance || "").trim();
+    // +X/-X => ±X (symmetric deviation)
+    const symmMatch = t.match(/^\+(\d+\.?\d*)\s*\/\s*-(\d+\.?\d*)$/);
+    if (symmMatch && symmMatch[1] === symmMatch[2]) {
+      item.tolerance = `±${symmMatch[1]}`;
+    }
+    // +X/0 => +X
+    const posMatch = t.match(/^\+(\d+\.?\d*)\s*\/\s*0$/);
+    if (posMatch) {
+      item.tolerance = `+${posMatch[1]}`;
+    }
+    // 0/-X => -X
+    const negMatch = t.match(/^0\s*\/\s*-(\d+\.?\d*)$/);
+    if (negMatch) {
+      item.tolerance = `-${negMatch[1]}`;
+    }
+  });
 
   // Pass 1: per-item fixes
   const processed = source.map((item) => {
@@ -2011,8 +2056,10 @@ function normalizeIncomingAnnotations(items) {
   source.forEach((item) => {
     const value = sanitize(item.value);
     const tolerance = sanitize(item.tolerance);
-    const x = item.anchor_hint && Number(item.anchor_hint.x);
-    const y = item.anchor_hint && Number(item.anchor_hint.y);
+    // Model may return anchor_hint or anchor (from compressBubbleHintsForPrompt format)
+    const hint = item.anchor_hint || item.anchor;
+    const x = hint && Number(hint.x);
+    const y = hint && Number(hint.y);
     if (!value || !Number.isFinite(x) || !Number.isFinite(y)) {
       return;
     }
@@ -2045,6 +2092,146 @@ function looksLikeLowQualityQwenResult(items) {
   });
   const maxSameAnchor = Math.max(0, ...anchorCounts.values());
   return onePointZeroCount >= Math.ceil(annotations.length * 0.35) || maxSameAnchor >= 4;
+}
+
+
+function detectProvider(baseUrl) {
+  if (baseUrl.includes("anthropic.com")) return "anthropic";
+  return "openai"; // OpenAI-compatible (Qwen, GLM, etc.)
+}
+
+// Convert OpenAI-style content array to Anthropic format
+function toAnthropicContent(openaiContent) {
+  if (typeof openaiContent === "string") return [{ type: "text", text: openaiContent }];
+  return openaiContent.map(item => {
+    if (item.type === "text") return item;
+    if (item.type === "image_url") {
+      const url = item.image_url.url;
+      const match = url.match(/^data:(image\/\w+);base64,(.+)$/);
+      if (match) {
+        return {
+          type: "image",
+          source: { type: "base64", media_type: match[1], data: match[2] }
+        };
+      }
+      // URL-based image (not base64)
+      return { type: "image", source: { type: "url", url } };
+    }
+    return item;
+  });
+}
+
+// Extract text from Anthropic response
+function extractAnthropicText(data) {
+  const blocks = data?.content || [];
+  return blocks.filter(b => b.type === "text").map(b => b.text).join("\n");
+}
+
+async function callModelAPI(settings, systemPrompt, userContent) {
+  const provider = detectProvider(settings.baseUrl);
+
+  if (provider === "anthropic") {
+    const response = await fetch(`${settings.baseUrl}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": settings.apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+        ...qwenExtraHeaders()
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        max_tokens: 8192,
+        temperature: 0,
+        system: systemPrompt,
+        messages: [{
+          role: "user",
+          content: toAnthropicContent(userContent)
+        }]
+      })
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Claude ${response.status}: ${errText}`);
+    }
+    const data = await response.json();
+    return extractAnthropicText(data);
+  }
+
+  // OpenAI-compatible (Qwen, GLM, etc.)
+  const isQwen = settings.baseUrl.includes("dashscope");
+  const isZhipu = settings.baseUrl.includes("bigmodel.cn") || settings.baseUrl.includes("z.ai");
+
+  let messages;
+  if (isZhipu) {
+    // GLM vision models don't support system role — prepend system prompt as text in user content
+    const merged = Array.isArray(userContent)
+      ? [{ type: "text", text: systemPrompt + "\n\n" }, ...userContent]
+      : [{ type: "text", text: systemPrompt + "\n\n" + userContent }];
+    messages = [{ role: "user", content: merged }];
+  } else {
+    messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userContent }
+    ];
+  }
+
+  const body = {
+    model: settings.model,
+    messages
+  };
+
+  // Provider-specific params
+  if (isQwen) {
+    body.enable_thinking = true;
+    // Note: response_format json_object is incompatible with enable_thinking
+    // The prompt instructs the model to return valid JSON
+  } else if (isZhipu) {
+    body.temperature = 0.1;
+  } else {
+    body.temperature = 0;
+  }
+  console.log(`[API] ${settings.model} request:`, { ...body, messages: body.messages.map(m => ({ role: m.role, contentTypes: Array.isArray(m.content) ? m.content.map(c => c.type) : "string" })) });
+  const response = await fetch(`${settings.baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${settings.apiKey}`,
+      ...qwenExtraHeaders()
+    },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`${settings.model} ${response.status}: ${errText}`);
+  }
+  const data = await response.json();
+  console.log("[API] raw response message:", JSON.stringify(data?.choices?.[0]?.message).slice(0, 500));
+  const msg = data?.choices?.[0]?.message;
+  const rc = msg?.content;
+
+  // Qwen thinking can appear in multiple formats:
+  // 1. content as array: [{type:"thinking",thinking:"..."},{type:"text",text:"..."}]
+  // 2. separate reasoning_content field on the message object
+  let thinking = "";
+  let text = "";
+
+  if (Array.isArray(rc)) {
+    const thinkingPart = rc.find(p => p.type === "thinking");
+    const textPart = rc.find(p => p.type === "text");
+    thinking = thinkingPart?.thinking || "";
+    text = textPart ? textPart.text : rc.map(p => p.text || "").join("\n");
+  } else {
+    text = rc || "";
+  }
+
+  // Fallback: some Qwen models put thinking in reasoning_content
+  if (!thinking && msg?.reasoning_content) {
+    thinking = msg.reasoning_content;
+  }
+
+  return { text, thinking };
 }
 
 async function runQwenPass(passMode = "review-pass") {
@@ -2089,66 +2276,37 @@ async function runQwenPass(passMode = "review-pass") {
       content.push({
         type: "image_url",
         image_url: {
-          url: screenshotBundle ? screenshotBundle.original : els.canvas.toDataURL("image/png")
+          url: screenshotBundle ? screenshotBundle.original : resizeCanvasIfNeeded(els.canvas, QWEN_MAX_LONG_SIDE)
         }
       });
     } else {
       content.push({ type: "text", text: "Image 1: original drawing page." });
       content.push({
         type: "image_url",
-        image_url: { url: screenshotBundle ? screenshotBundle.original : els.canvas.toDataURL("image/png") }
+        image_url: { url: screenshotBundle ? screenshotBundle.original : resizeCanvasIfNeeded(els.canvas, QWEN_MAX_LONG_SIDE) }
       });
       content.push({ type: "text", text: "Image 2: generated bubble layout only." });
       content.push({
         type: "image_url",
-        image_url: { url: screenshotBundle ? screenshotBundle.generated : els.canvas.toDataURL("image/png") }
+        image_url: { url: screenshotBundle ? screenshotBundle.generated : resizeCanvasIfNeeded(els.canvas, QWEN_MAX_LONG_SIDE) }
       });
       content.push({ type: "text", text: "Image 3: annotated composite with bubbles over the original drawing." });
       content.push({
         type: "image_url",
-        image_url: { url: screenshotBundle ? screenshotBundle.annotated : els.canvas.toDataURL("image/png") }
+        image_url: { url: screenshotBundle ? screenshotBundle.annotated : resizeCanvasIfNeeded(els.canvas, QWEN_MAX_LONG_SIDE) }
       });
     }
-    const response = await fetch(`${settings.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${settings.apiKey}`,
-        ...qwenExtraHeaders()
-      },
-      body: JSON.stringify({
-        model: settings.model,
-        temperature: 0,
-        enable_thinking: false,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content: qwenSystemPrompt(passMode)
-          },
-          {
-            role: "user",
-            content
-          }
-        ]
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Qwen 请求失败：${response.status} ${errorText}`);
-    }
+    setProgress(
+      isFirstPass ? `正在调用 ${modelLabel}` : `正在调用 ${modelLabel} 复核`,
+      30
+    );
+    const result = await callModelAPI(settings, qwenSystemPrompt(passMode), content);
 
     setProgress(
       isFirstPass ? `正在解析 ${modelLabel} 首轮结果` : `正在解析 ${modelLabel} 返回`,
       72
     );
-    const data = await response.json();
-    const responseContent = data?.choices?.[0]?.message?.content;
-    const text = Array.isArray(responseContent)
-      ? responseContent.map((part) => part.text || "").join("\n")
-      : responseContent;
-    const payload = extractJsonObject(text);
+    const payload = extractJsonObject(result.text);
     payload.annotations = normalizeIncomingAnnotations(payload.annotations);
     if (looksLikeLowQualityQwenResult(payload.annotations)) {
       throw new Error("模型返回了低质量的重复标注；请优先确认当前模型为 qwen3.6-plus，必要时再切换其他视觉模型重试");
@@ -2156,10 +2314,97 @@ async function runQwenPass(passMode = "review-pass") {
     mergeQwenResults(payload);
     renumberBubbles();
     state.scanSnapshot = state.annotations.map((item) => structuredClone(item));
-    setProgress(isFirstPass ? `${modelLabel} 首轮识别完成` : `${modelLabel} 复核完成`, 100);
+
+    // Capture screenshot AFTER annotations are rendered for the thinking history
+    renderAnnotations();
+    const postMergeScreenshot = captureScreenshotBundle();
+    showThinking(result.thinking, isFirstPass ? "首轮提取" : "复核", postMergeScreenshot);
+
+    // Self-iteration: re-render overlay, send annotated image back for refinement
+    const maxIter = isFirstPass ? Math.max(1, Math.min(10, settings.maxIterations || 3)) : 1;
+    const totalIterations = maxIter - 1; // first pass already done above
+    for (let iter = 0; iter < totalIterations; iter++) {
+      const iterNum = iter + 2; // display as iteration 2, 3, ...
+      const progressBase = 72 + Math.round((iter / totalIterations) * 25); // 72-97 range
+
+      setProgress(`${modelLabel} 第${iterNum}轮迭代（共${maxIter}轮）`, progressBase);
+      setStatus(`${modelLabel} 第${iterNum}/${maxIter}轮：正在重新渲染标注叠加图并复核...`);
+
+      // Re-render annotations onto canvas to get fresh overlay screenshot
+      renderAnnotations();
+      const iterScreenshot = captureScreenshotBundle();
+
+      const refineSystemPrompt = [
+        "你是工程图纸标注复核专家。只返回合法 JSON。",
+        "",
+        "你的任务是对照原始图纸和当前标注叠加图，逐项复核并改进上一轮的提取结果。",
+        "叠加图中：青色圆点 = 当前锚点位置，圆圈+编号 = 气泡标签，连线 = 锚点到气泡的指引线。",
+        "",
+        "【复核优先级】",
+        "1. 锚点精度：青色圆点必须落在对应数值文字的中心。如果青色圆点偏离到尺寸线、箭头、或邻近数字上，修正 anchor_hint",
+        "2. 数值准确：对照原始图纸核实每个 value 和 tolerance，修正误读（特别注意 0↔9、3↔8、5↔6）",
+        "3. 遗漏补全：原始图纸上有标注但叠加图中没有青色圆点的区域，说明该尺寸被遗漏，需要补充",
+        "4. 误识别删除：如果某个标注实际属于标题栏、公差表等非几何区域，删除它",
+        "",
+        "【输出要求】",
+        "- 返回完整的修正后标注列表（不是增量，是全量替换）",
+        "- label 序号保持 B1、B2... 连续",
+        "- 未变更的标注也要原样保留在输出中"
+      ].join("\n");
+
+      const refineUserPrompt = [
+        `第${iterNum}轮复核。请逐项检查以下标注，对照两张图片改进。`,
+        "",
+        "当前结果：",
+        JSON.stringify(compressBubbleHintsForPrompt(), null, 2)
+      ].join("\n");
+
+      const refineContent = [
+        { type: "text", text: refineUserPrompt },
+        { type: "text", text: "Image 1: original drawing page." },
+        {
+          type: "image_url",
+          image_url: { url: iterScreenshot ? iterScreenshot.original : resizeCanvasIfNeeded(els.canvas, QWEN_MAX_LONG_SIDE) }
+        },
+        { type: "text", text: "Image 2: annotated overlay — red dots are current anchor positions, circles with labels are bubbles." },
+        {
+          type: "image_url",
+          image_url: { url: iterScreenshot ? iterScreenshot.annotated : resizeCanvasIfNeeded(els.canvas, QWEN_MAX_LONG_SIDE) }
+        }
+      ];
+
+      const MAX_RETRIES = 2;
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          if (attempt > 0) {
+            setProgress(`第${iterNum}轮重试 (${attempt}/${MAX_RETRIES})`, progressBase);
+          }
+          const refineResult = await callModelAPI(settings, refineSystemPrompt, refineContent);
+          showThinking(refineResult.thinking, `第${iterNum}轮迭代${attempt > 0 ? ` (重试${attempt})` : ""}`, iterScreenshot);
+
+          setProgress(`正在解析第${iterNum}轮结果`, progressBase + 2);
+          const refinePayload = extractJsonObject(refineResult.text);
+          refinePayload.annotations = normalizeIncomingAnnotations(refinePayload.annotations);
+          if (!looksLikeLowQualityQwenResult(refinePayload.annotations)) {
+            mergeQwenResults(refinePayload);
+            renumberBubbles();
+            state.scanSnapshot = state.annotations.map((item) => structuredClone(item));
+          }
+          break;
+        } catch (iterError) {
+          console.warn(`第${iterNum}轮迭代失败 (attempt ${attempt + 1}):`, iterError.message);
+          if (attempt === MAX_RETRIES) {
+            console.error(`第${iterNum}轮迭代已跳过（${MAX_RETRIES + 1}次尝试均失败）`);
+            showThinking(`⚠ 本轮失败已跳过: ${iterError.message}`, `第${iterNum}轮迭代（失败）`, iterScreenshot);
+          }
+        }
+      }
+    }
+
+    setProgress(isFirstPass ? `${modelLabel} ${maxIter}轮识别完成` : `${modelLabel} 复核完成`, 100);
     setStatus(
       isFirstPass
-        ? `${modelLabel} 首轮识别已完成。下一步请检查初始气泡，手动调整不满意的地方，然后再次运行 Qwen。`
+        ? `${modelLabel} ${maxIter}轮迭代完成（${state.annotations.length} 个标注）。请检查气泡，手动调整后可再次运行复核。`
         : `${modelLabel} 复核已完成。系统已尽量保留现有气泡，补充遗漏项，并更新图纸级公差或标准信息。你可以继续修正并再次复跑。`
     );
   } catch (error) {
@@ -2279,6 +2524,7 @@ els.loadSampleBtn.addEventListener("click", loadSample);
 els.scanBtn.addEventListener("click", scanDrawing);
 els.localFallbackBtn.addEventListener("click", runLocalFallbackOcr);
 els.resetBtn.addEventListener("click", resetToScanSnapshot);
+els.clearThinkingBtn.addEventListener("click", clearThinkingHistory);
 els.toggleBoxesBtn.addEventListener("click", () => {
   state.showBoxes = !state.showBoxes;
   renderAnnotations();
@@ -2308,6 +2554,20 @@ els.exportCsvBtn.addEventListener("click", exportCsv);
 els.exportXlsxBtn.addEventListener("click", exportXlsx);
 els.runQwenBtn.addEventListener("click", runQwenReview);
 els.saveQwenBtn.addEventListener("click", saveQwenSettings);
+
+const MODEL_PRESETS = {
+  qwen: { model: "qwen3.6-plus-2026-04-02", baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1" },
+  zhipu: { model: "glm-5v-turbo", baseUrl: "https://open.bigmodel.cn/api/paas/v4" },
+  anthropic: { model: "claude-sonnet-4-20250514", baseUrl: "https://api.anthropic.com/v1" }
+};
+
+els.modelPreset.addEventListener("change", () => {
+  const preset = MODEL_PRESETS[els.modelPreset.value];
+  if (preset) {
+    els.qwenModel.value = preset.model;
+    els.qwenBaseUrl.value = preset.baseUrl;
+  }
+});
 els.resetPromptsBtn.addEventListener("click", () => {
   fillPromptEditorsFromDefaults();
   setStatus("已恢复默认提示词。若要用于后续测试，请点击“保存 API 设置”。");
@@ -2321,12 +2581,58 @@ els.importJsonInput.addEventListener("change", async (event) => {
   try {
     const text = await file.text();
     const payload = JSON.parse(text);
+
+    // Detect simple annotation-only JSON (e.g. expected files without full project structure)
+    if (Array.isArray(payload.annotations) && !payload.meta && !payload.sourceAsset) {
+      const hasInternalFields = payload.annotations.length > 0 && payload.annotations[0].id && Number.isFinite(payload.annotations[0].x);
+      if (!hasInternalFields) {
+        // Convert simple annotations to internal format with positions
+        const w = state.canvasWidth || 800;
+        const h = state.canvasHeight || 600;
+        state.annotations = payload.annotations.map((item, index) => {
+          const ax = item.anchor_hint ? item.anchor_hint.x * w : (w * 0.3) + ((index % 5) * 40);
+          const ay = item.anchor_hint ? item.anchor_hint.y * h : (h * 0.2) + (index * 30);
+          const anchorX = clamp(ax, 8, w - 8);
+          const anchorY = clamp(ay, 8, h - 8);
+          const side = index % 2 === 0 ? 1 : -1;
+          return {
+            id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+            label: item.label || `B${index + 1}`,
+            value: item.value || "",
+            tolerance: item.tolerance || "",
+            note: item.note || item.source_text || "",
+            source_text: item.source_text || "",
+            confidence: item.confidence || 0.9,
+            region_type: item.region_type || "geometry_dimension",
+            view_name: item.view_name || "",
+            page: state.currentPage,
+            x: clamp(anchorX + (side * 92), 12, w - 58),
+            y: clamp(anchorY - 20 + ((index % 5) - 2) * 18, 12, h - 58),
+            anchorX,
+            anchorY,
+            box: null,
+            manual: false
+          };
+        });
+        state.scanSnapshot = [];
+        state.activeId = state.annotations[0] ? state.annotations[0].id : null;
+        syncSelectionFields();
+        renderAnnotations();
+        renderTable();
+        markDirty();
+        setStatus(`已导入 ${state.annotations.length} 个标注（简易 JSON 格式）。请先加载对应的源文件。`);
+        event.target.value = "";
+        return;
+      }
+    }
+
     await restoreProjectFromPayload(payload);
     setStatus("已导入完整项目 JSON 包；如果可用，也一并恢复了保存的源文件和截图。");
   } catch (error) {
     console.error(error);
     setStatus(`无法导入 JSON：${error.message}`);
   }
+  event.target.value = "";
 });
 
 els.pageSelect.addEventListener("change", async () => {

@@ -1,0 +1,239 @@
+{
+  "source": "D0052271_2_F1_REAR TUBE ASSY_Sheet.1.pdf",
+  "annotations": [
+    {
+      "label": "B1",
+      "value": "1.5",
+      "tolerance": "±0.1",
+      "source_text": "1.5±0.1",
+      "note": "后视图顶部小尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "后视图",
+      "anchor_hint": {
+        "x": 0.4,
+        "y": 0.12
+      }
+    },
+    {
+      "label": "B2",
+      "value": "100.0",
+      "tolerance": "±5.1",
+      "source_text": "100.0 ±5.1",
+      "note": "后视图整体长度尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "后视图",
+      "anchor_hint": {
+        "x": 0.48,
+        "y": 0.18
+      }
+    },
+    {
+      "label": "B3",
+      "value": "100.7",
+      "tolerance": "",
+      "source_text": "100.7",
+      "note": "底视图整体长度尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "底视图",
+      "anchor_hint": {
+        "x": 0.48,
+        "y": 0.35
+      }
+    },
+    {
+      "label": "B4",
+      "value": "Φ/T 106/100",
+      "tolerance": "",
+      "source_text": "Φ/T 106/100",
+      "note": "前视图左上方管径标注",
+      "region_type": "geometry_dimension",
+      "view_name": "前视图",
+      "anchor_hint": {
+        "x": 0.3,
+        "y": 0.55
+      }
+    },
+    {
+      "label": "B5",
+      "value": "40.1",
+      "tolerance": "",
+      "source_text": "40.1",
+      "note": "前视图左上方线性尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "前视图",
+      "anchor_hint": {
+        "x": 0.35,
+        "y": 0.55
+      }
+    },
+    {
+      "label": "B6",
+      "value": "18",
+      "tolerance": "",
+      "source_text": "18",
+      "note": "前视图左上方短尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "前视图",
+      "anchor_hint": {
+        "x": 0.44,
+        "y": 0.61
+      }
+    },
+    {
+      "label": "B7",
+      "value": "42.1",
+      "tolerance": "",
+      "source_text": "42.1",
+      "note": "前视图右上方线性尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "前视图",
+      "anchor_hint": {
+        "x": 0.42,
+        "y": 0.61
+      }
+    },
+    {
+      "label": "B8",
+      "value": "18",
+      "tolerance": "",
+      "source_text": "18",
+      "note": "前视图右上方短尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "前视图",
+      "anchor_hint": {
+        "x": 0.44,
+        "y": 0.67
+      }
+    },
+    {
+      "label": "B9",
+      "value": "106/100",
+      "tolerance": "",
+      "source_text": "106/100 Φ/T",
+      "note": "前视图右上方管径标注",
+      "region_type": "geometry_dimension",
+      "view_name": "前视图",
+      "anchor_hint": {
+        "x": 0.6,
+        "y": 0.55
+      }
+    },
+    {
+      "label": "B10",
+      "value": "Φ/T 106/100",
+      "tolerance": "",
+      "source_text": "Φ/T 106/100",
+      "note": "前视图左下方管径标注",
+      "region_type": "geometry_dimension",
+      "view_name": "前视图",
+      "anchor_hint": {
+        "x": 0.3,
+        "y": 0.7
+      }
+    },
+    {
+      "label": "B11",
+      "value": "40.1",
+      "tolerance": "",
+      "source_text": "40.1",
+      "note": "前视图左下方线性尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "前视图",
+      "anchor_hint": {
+        "x": 0.35,
+        "y": 0.7
+      }
+    },
+    {
+      "label": "B12",
+      "value": "18",
+      "tolerance": "",
+      "source_text": "18",
+      "note": "前视图左下方短尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "前视图",
+      "anchor_hint": {
+        "x": 0.38,
+        "y": 0.7
+      }
+    },
+    {
+      "label": "B13",
+      "value": "73.0",
+      "tolerance": "±0.5",
+      "source_text": "73.0±0.5",
+      "note": "前视图中部横向尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "前视图",
+      "anchor_hint": {
+        "x": 0.46,
+        "y": 0.69
+      }
+    },
+    {
+      "label": "B14",
+      "value": "42.1",
+      "tolerance": "",
+      "source_text": "42.1",
+      "note": "前视图右下方线性尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "前视图",
+      "anchor_hint": {
+        "x": 0.42,
+        "y": 0.67
+      }
+    },
+    {
+      "label": "B15",
+      "value": "18",
+      "tolerance": "",
+      "source_text": "18",
+      "note": "前视图右下方短尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "前视图",
+      "anchor_hint": {
+        "x": 0.58,
+        "y": 0.7
+      }
+    },
+    {
+      "label": "B16",
+      "value": "106/100",
+      "tolerance": "",
+      "source_text": "106/100 Φ/T",
+      "note": "前视图右下方管径标注",
+      "region_type": "geometry_dimension",
+      "view_name": "前视图",
+      "anchor_hint": {
+        "x": 0.6,
+        "y": 0.7
+      }
+    },
+    {
+      "label": "B17",
+      "value": "128.7",
+      "tolerance": "±5.5",
+      "source_text": "128.7±5.5",
+      "note": "前视图底部整体长度尺寸",
+      "region_type": "geometry_dimension",
+      "view_name": "前视图",
+      "anchor_hint": {
+        "x": 0.48,
+        "y": 0.72
+      }
+    },
+    {
+      "label": "B18",
+      "value": "Φ0",
+      "tolerance": "",
+      "source_text": "(Φ0)",
+      "note": "参考尺寸，辅助视图A圆孔直径",
+      "region_type": "geometry_dimension",
+      "view_name": "辅助视图A",
+      "anchor_hint": {
+        "x": 0.72,
+        "y": 0.35
+      }
+    }
+  ]
+}
